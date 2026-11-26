@@ -1,0 +1,1290 @@
+<Window x:Class="Eigen.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Eigen.Controls"
+        xmlns:models="clr-namespace:Eigen.Models"
+        xmlns:vm="clr-namespace:Eigen.ViewModels"
+        Title="Eigen"
+        Icon="pack://application:,,,/Eigen;component/Assets/Eigen.ico"
+        Width="1360"
+        Height="840"
+        MinWidth="680"
+        MinHeight="460"
+        Background="{DynamicResource BgWindowBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        FontFamily="{DynamicResource AppFont}"
+        TextElement.FontWeight="{Binding UiFontWeight}"
+        WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="OnWindowPreviewKeyDown"
+        PreviewTextInput="OnWindowPreviewTextInput"
+        StateChanged="OnWindowStateChanged"
+        Closing="OnWindowClosing">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40"
+                      CornerRadius="8"
+                      GlassFrameThickness="0"
+                      ResizeBorderThickness="6"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- Tab Context Menu -->
+        <ContextMenu x:Key="TabContextMenu">
+            <MenuItem Header="New Tab" InputGestureText="Ctrl+T" Click="OnTabMenuNewClick" />
+            <MenuItem Header="Duplicate Tab" Click="OnTabMenuDuplicateClick" />
+            <MenuItem Header="Toggle Split View" InputGestureText="Ctrl+\" Click="OnTabMenuSplitClick" />
+            <Separator />
+            <MenuItem Header="Close Tab" InputGestureText="Ctrl+W" Click="OnTabMenuCloseClick" />
+            <MenuItem Header="Close Other Tabs" Click="OnTabMenuCloseOthersClick" />
+        </ContextMenu>
+
+        <!-- Sidebar Tree Style -->
+        <Style x:Key="SidebarTreeItemStyle" TargetType="TreeViewItem">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeViewItem">
+                        <StackPanel>
+                            <Border x:Name="Bd"
+                                    Background="Transparent"
+                                    CornerRadius="6"
+                                    Margin="{Binding DataContext.SidebarTreeItemMargin, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='4,1'}"
+                                    Padding="{Binding DataContext.SidebarTreeItemPadding, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='4,4.7'}"
+                                    Cursor="Hand"
+                                    MouseLeftButtonUp="OnTreeItemBoxClick">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleButton x:Name="Expander"
+                                                  Grid.Column="0"
+                                                  IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                                  ClickMode="Press"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Width="16" Height="16"
+                                                  Visibility="{Binding CanExpand, Converter={StaticResource BoolToVis}}">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="Transparent">
+                                                    <TextBlock x:Name="Arrow"
+                                                               FontFamily="{StaticResource IconFont}"
+                                                               Text="&#xE76C;"
+                                                               FontSize="9"
+                                                               Foreground="{DynamicResource TextMutedBrush}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsChecked" Value="True">
+                                                        <Setter TargetName="Arrow" Property="Text" Value="&#xE70D;" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                            <ItemsPresenter x:Name="ItemsHost" Margin="14,0,0,0" Visibility="Collapsed" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionBrush}" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="True" />
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionHoverBrush}" />
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border x:Name="RootFrameBorder"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1">
+        <Grid x:Name="RootGrid">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="42" />
+                <RowDefinition Height="44" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 1. Custom Titlebar + Integrated Tabs -->
+            <Border Grid.Row="0"
+                    Background="{DynamicResource BgWindowBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1"
+                    MouseLeftButtonDown="OnTitleBarMouseDown">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Eigen Brand -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,12,0">
+                        <Viewbox Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0">
+                            <Canvas Width="256" Height="256">
+                                <Path Data="M 34,24 L 98,24 C 110,24 116,29 123,37 L 134,48 C 139,53 145,55 153,55 L 222,55 C 236,55 246,65 246,79 L 246,204 C 246,218 236,228 222,228 L 34,228 C 20,228 10,218 10,204 L 10,48 C 10,34 20,24 34,24 Z"
+                                      Fill="{DynamicResource AccentHoverBrush}" />
+                                <Rectangle Canvas.Left="24" Canvas.Top="68" Width="208" Height="48" RadiusX="14" RadiusY="14"
+                                           Fill="{DynamicResource AccentSoftBrush}" />
+                                <Rectangle Canvas.Left="10" Canvas.Top="84" Width="236" Height="148" RadiusX="24" RadiusY="24"
+                                           Fill="{DynamicResource AccentBrush}" />
+                                <Rectangle Canvas.Left="34" Canvas.Top="85" Width="188" Height="4" RadiusX="2" RadiusY="2"
+                                           Fill="{DynamicResource TextOnAccentBrush}" Opacity="0.55" />
+                                <Rectangle Canvas.Left="72" Canvas.Top="184" Width="112" Height="24" RadiusX="12" RadiusY="12"
+                                           Fill="{DynamicResource TextOnAccentBrush}" Opacity="0.92" />
+                                <Rectangle Canvas.Left="100" Canvas.Top="193" Width="56" Height="6" RadiusX="3" RadiusY="3"
+                                           Fill="{DynamicResource AccentBrush}" />
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="Eigen"
+                                   FontSize="13.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Tab Strip -->
+                    <DockPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="0,5,8,0">
+                        <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      DockPanel.Dock="Left"
+                                      MaxWidth="880"
+                                      WindowChrome.IsHitTestVisibleInChrome="True">
+                            <ItemsControl ItemsSource="{Binding Tabs}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ExplorerTabViewModel}">
+                                        <Border x:Name="TabPill"
+                                                Height="34"
+                                                MinWidth="135"
+                                                MaxWidth="220"
+                                                Margin="0,0,4,0"
+                                                Padding="10,0,6,0"
+                                                CornerRadius="8,8,0,0"
+                                                BorderThickness="1,1,1,0"
+                                                BorderBrush="Transparent"
+                                                Background="Transparent"
+                                                Cursor="Hand"
+                                                ContextMenu="{StaticResource TabContextMenu}"
+                                                MouseLeftButtonDown="OnTabPillClick"
+                                                MouseDown="OnTabPillMiddleClick">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <Image Grid.Column="0"
+                                                       Source="{Binding TabIcon}"
+                                                       Width="15" Height="15"
+                                                       Margin="0,0,7,0"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding TabIcon, Converter={StaticResource NullToVis}}" />
+                                                <TextBlock Grid.Column="0"
+                                                           FontFamily="{StaticResource IconFont}"
+                                                           Text="&#xE80F;"
+                                                           FontSize="13"
+                                                           Foreground="{DynamicResource AccentBrush}"
+                                                           Margin="0,0,7,0"
+                                                           VerticalAlignment="Center"
+                                                           Visibility="{Binding TabIcon, Converter={StaticResource InvNullToVis}}" />
+
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding TabTitle}"
+                                                           FontSize="12"
+                                                           FontWeight="Medium"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+
+                                                <Button Grid.Column="2"
+                                                        Style="{StaticResource IconButtonStyle}"
+                                                        Width="20" Height="20"
+                                                        FontSize="9"
+                                                        Margin="6,0,0,0"
+                                                        Content="&#xE711;"
+                                                        ToolTip="Close tab (Ctrl+W)"
+                                                        Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+
+                                                <Border x:Name="ActiveTabIndicator"
+                                                        Grid.ColumnSpan="3"
+                                                        Height="2"
+                                                        VerticalAlignment="Bottom"
+                                                        Margin="-4,0,0,0"
+                                                        CornerRadius="1"
+                                                        Background="{DynamicResource AccentBrush}"
+                                                        Visibility="Collapsed" />
+                                            </Grid>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="TabPill" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter TargetName="TabPill" Property="Background" Value="{DynamicResource BgSidebarBrush}" />
+                                                <Setter TargetName="TabPill" Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+                                                <Setter TargetName="ActiveTabIndicator" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <Button Style="{StaticResource IconButtonStyle}"
+                                Width="28" Height="28"
+                                Margin="2,0,0,3"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Left"
+                                Content="&#xE710;"
+                                ToolTip="New Tab (Ctrl+T)"
+                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                Command="{Binding NewTabCommand}" />
+                    </DockPanel>
+
+                    <!-- Window Caption Buttons -->
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Stretch"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button Style="{StaticResource CaptionButtonStyle}"
+                                Content="&#xE921;"
+                                ToolTip="Minimize"
+                                Click="OnMinimizeClick" />
+                        <Button x:Name="MaxRestoreButton"
+                                Style="{StaticResource CaptionButtonStyle}"
+                                Content="&#xE922;"
+                                ToolTip="Maximize"
+                                Click="OnMaxRestoreClick" />
+                        <Button Style="{StaticResource CloseCaptionButtonStyle}"
+                                Content="&#xE8BB;"
+                                ToolTip="Close"
+                                Click="OnCloseClick" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 2. Command Action Toolbar -->
+            <Border Grid.Row="1"
+                    Background="{DynamicResource HeaderSurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="10,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left Actions -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource IconButtonStyle}"
+                                Content="&#xE700;"
+                                ToolTip="Toggle Sidebar"
+                                Margin="0,0,6,0"
+                                Command="{Binding ToggleSidebarCommand}" />
+
+                        <!-- New Dropdown -->
+                        <Button Style="{StaticResource AccentButtonStyle}"
+                                Height="28"
+                                Padding="10,0"
+                                Margin="0,0,8,0"
+                                Click="OnNewMenuButtonClick">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE710;" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="New" FontSize="12.5" VerticalAlignment="Center" />
+                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70D;" FontSize="9" VerticalAlignment="Center" Margin="6,1,0,0" />
+                            </StackPanel>
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="NewItemMenu" Opened="OnNewItemMenuOpened">
+                                    <MenuItem Header="New Folder" InputGestureText="Ctrl+Shift+N" Command="{Binding NewFolderCommand}">
+                                        <MenuItem.Icon>
+                                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8F4;" FontSize="12" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="New Text Document (.txt)" Command="{Binding NewTextFileCommand}">
+                                        <MenuItem.Icon>
+                                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8A5;" FontSize="12" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="New Markdown Note (.md)" Command="{Binding NewMarkdownFileCommand}">
+                                        <MenuItem.Icon>
+                                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70F;" FontSize="12" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+
+                        <Border Width="1" Height="20" Background="{DynamicResource BorderSubtleBrush}" Margin="2,0,6,0" />
+
+                        <Button Style="{StaticResource IconButtonStyle}" Content="&#xE8C6;" ToolTip="Cut (Ctrl+X)" Command="{Binding CutCommand}" />
+                        <Button Style="{StaticResource IconButtonStyle}" Content="&#xE8C8;" ToolTip="Copy (Ctrl+C)" Command="{Binding CopyCommand}" />
+                        <Button Style="{StaticResource IconButtonStyle}" Content="&#xE77F;" ToolTip="Paste (Ctrl+V)" Command="{Binding PasteCommand}" />
+                        <Button Style="{StaticResource IconButtonStyle}" Content="&#xE8AC;" ToolTip="Rename (F2)" Command="{Binding RenameCommand}" />
+                        <Button Style="{StaticResource IconButtonStyle}" Content="&#xE74D;" ToolTip="Move to Recycle Bin (Del)" Command="{Binding DeleteCommand}" />
+                        <Button Style="{StaticResource IconButtonStyle}" Content="&#xE7A7;" ToolTip="{Binding UndoLabel}" Command="{Binding UndoCommand}" />
+
+                        <Border Width="1" Height="20" Background="{DynamicResource BorderSubtleBrush}" Margin="6,0" />
+
+                        <!-- Dual-Pane Controls -->
+                        <ToggleButton Style="{StaticResource EigenToggleButtonStyle}"
+                                      Height="28"
+                                      IsChecked="{Binding ActiveTab.IsSplitView, Mode=OneWay}"
+                                      Command="{Binding ToggleSplitViewCommand}"
+                                      ToolTip="Toggle Dual-Pane Split View (Ctrl+\)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xF57C;" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Split" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ToggleButton>
+
+                        <StackPanel Orientation="Horizontal"
+                                    Margin="4,0,0,0"
+                                    Visibility="{Binding ActiveTab.IsSplitView, Converter={StaticResource BoolToVis}}">
+                            <Button Style="{StaticResource ActionButtonStyle}"
+                                    Height="28"
+                                    Padding="8,0"
+                                    ToolTip="Copy selected items to the other pane"
+                                    Command="{Binding CopyToOtherPaneCommand}">
+                                <TextBlock Text="Copy &#x21C4;" FontSize="11.5" />
+                            </Button>
+                            <Button Style="{StaticResource ActionButtonStyle}"
+                                    Height="28"
+                                    Padding="8,0"
+                                    ToolTip="Move selected items to the other pane"
+                                    Command="{Binding MoveToOtherPaneCommand}">
+                                <TextBlock Text="Move &#x21C4;" FontSize="11.5" />
+                            </Button>
+                            <Button Style="{StaticResource IconButtonStyle}"
+                                    Content="&#xE8AB;"
+                                    ToolTip="Swap Left &amp; Right Panes"
+                                    Command="{Binding SwapPanesCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Right Actions: Sort, View Mode, Hidden, Terminal, Inspector -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Sort Menu Button -->
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Height="28"
+                                Padding="9,0"
+                                Margin="0,0,6,0"
+                                ToolTip="Sort items"
+                                Click="OnSortMenuButtonClick">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8CB;" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Sort" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="SortMenu">
+                                    <MenuItem Header="Name" Command="{Binding ActivePane.SortByCommand}" CommandParameter="{x:Static models:SortField.Name}" />
+                                    <MenuItem Header="Date Modified" Command="{Binding ActivePane.SortByCommand}" CommandParameter="{x:Static models:SortField.DateModified}" />
+                                    <MenuItem Header="Type" Command="{Binding ActivePane.SortByCommand}" CommandParameter="{x:Static models:SortField.Type}" />
+                                    <MenuItem Header="Size" Command="{Binding ActivePane.SortByCommand}" CommandParameter="{x:Static models:SortField.Size}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+
+                        <!-- View Mode Buttons -->
+                        <Border Background="{DynamicResource BgInputBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="2"
+                                Margin="0,0,6,0">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton GroupName="ViewModes"
+                                             IsChecked="{Binding ActivePane.ViewMode, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static models:ExplorerViewMode.Details}, Mode=OneWay}"
+                                             Command="{Binding SetViewModeCommand}"
+                                             CommandParameter="{x:Static models:ExplorerViewMode.Details}"
+                                             ToolTip="Details View">
+                                    <RadioButton.Template>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="Bd" CornerRadius="4" Width="26" Height="24" Background="Transparent" Cursor="Hand">
+                                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8FD;" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionBrush}" />
+                                                </Trigger>
+                                                <MultiTrigger>
+                                                    <MultiTrigger.Conditions>
+                                                        <Condition Property="IsChecked" Value="True" />
+                                                        <Condition Property="IsMouseOver" Value="True" />
+                                                    </MultiTrigger.Conditions>
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionHoverBrush}" />
+                                                </MultiTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </RadioButton.Template>
+                                </RadioButton>
+                                <RadioButton GroupName="ViewModes"
+                                             IsChecked="{Binding ActivePane.ViewMode, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static models:ExplorerViewMode.Tiles}, Mode=OneWay}"
+                                             Command="{Binding SetViewModeCommand}"
+                                             CommandParameter="{x:Static models:ExplorerViewMode.Tiles}"
+                                             ToolTip="Tiles &amp; Thumbnails View">
+                                    <RadioButton.Template>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="Bd" CornerRadius="4" Width="26" Height="24" Background="Transparent" Cursor="Hand">
+                                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xF0E2;" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionBrush}" />
+                                                </Trigger>
+                                                <MultiTrigger>
+                                                    <MultiTrigger.Conditions>
+                                                        <Condition Property="IsChecked" Value="True" />
+                                                        <Condition Property="IsMouseOver" Value="True" />
+                                                    </MultiTrigger.Conditions>
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionHoverBrush}" />
+                                                </MultiTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </RadioButton.Template>
+                                </RadioButton>
+                                <RadioButton GroupName="ViewModes"
+                                             IsChecked="{Binding ActivePane.ViewMode, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static models:ExplorerViewMode.Compact}, Mode=OneWay}"
+                                             Command="{Binding SetViewModeCommand}"
+                                             CommandParameter="{x:Static models:ExplorerViewMode.Compact}"
+                                             ToolTip="Compact List View">
+                                    <RadioButton.Template>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="Bd" CornerRadius="4" Width="26" Height="24" Background="Transparent" Cursor="Hand">
+                                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8A4;" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionBrush}" />
+                                                </Trigger>
+                                                <MultiTrigger>
+                                                    <MultiTrigger.Conditions>
+                                                        <Condition Property="IsChecked" Value="True" />
+                                                        <Condition Property="IsMouseOver" Value="True" />
+                                                    </MultiTrigger.Conditions>
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionHoverBrush}" />
+                                                </MultiTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </RadioButton.Template>
+                                </RadioButton>
+                            </StackPanel>
+                        </Border>
+
+                        <ToggleButton Style="{StaticResource EigenToggleButtonStyle}"
+                                      Height="28"
+                                      Padding="8,0"
+                                      Margin="0,0,6,0"
+                                      IsChecked="{Binding ShowHiddenFiles, Mode=TwoWay}"
+                                      ToolTip="Show Hidden Files (Ctrl+H)">
+                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xED1A;" FontSize="13" VerticalAlignment="Center" />
+                        </ToggleButton>
+
+                        <Button Style="{StaticResource IconButtonStyle}"
+                                Content="&#xE756;"
+                                ToolTip="Open Folder in Terminal"
+                                Margin="0,0,6,0"
+                                Command="{Binding OpenInTerminalCommand}" />
+
+                        <ToggleButton Style="{StaticResource EigenToggleButtonStyle}"
+                                      Height="28"
+                                      Padding="9,0"
+                                      Margin="0,0,6,0"
+                                      IsChecked="{Binding IsPreviewPaneOpen, Mode=TwoWay}"
+                                      ToolTip="Toggle Inspector Preview Pane (Alt+P)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8A0;" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Preview" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ToggleButton>
+
+                        <ToggleButton Style="{StaticResource EigenToggleButtonStyle}"
+                                      Height="28"
+                                      Padding="9,0"
+                                      IsChecked="{Binding IsCustomizePaneOpen, Mode=TwoWay}"
+                                      ToolTip="Customize gaps, icon size, font size, and 50 skins">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE771;" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Customize" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ToggleButton>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 3. Main Explorer Workspace -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="SidebarColumn" Width="246" MinWidth="170" MaxWidth="460" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" MinWidth="260" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition x:Name="PreviewColumn" Width="0" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left Navigation Sidebar -->
+                <Border x:Name="SidebarContainer"
+                        Grid.Column="0"
+                        Background="{DynamicResource BgSidebarBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="0,0,1,0"
+                        Visibility="{Binding IsSidebarCollapsed, Converter={StaticResource InvBoolToVis}}">
+                    <ScrollViewer x:Name="SidebarScrollViewer"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  CanContentScroll="False"
+                                  PanningMode="Both">
+                        <ScrollViewer.Template>
+                            <ControlTemplate TargetType="ScrollViewer">
+                                <Grid Background="{TemplateBinding Background}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                                            Grid.Column="0"
+                                                            Grid.Row="0"
+                                                            CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                            Content="{TemplateBinding Content}"
+                                                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                            Margin="{TemplateBinding Padding}" />
+                                    <ScrollBar x:Name="PART_VerticalScrollBar"
+                                               Grid.Column="1"
+                                               Grid.Row="0"
+                                               Cursor="Arrow"
+                                               Maximum="{TemplateBinding ScrollableHeight}"
+                                               Minimum="0"
+                                               Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                               Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                               ViewportSize="{TemplateBinding ViewportHeight}" />
+                                    <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                               Grid.Column="0"
+                                               Grid.Row="1"
+                                               Orientation="Horizontal"
+                                               Cursor="Arrow"
+                                               Maximum="{TemplateBinding ScrollableWidth}"
+                                               Minimum="0"
+                                               Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
+                                               Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                               ViewportSize="{TemplateBinding ViewportWidth}" />
+                                </Grid>
+                            </ControlTemplate>
+                        </ScrollViewer.Template>
+                        <StackPanel Margin="6,10">
+                            <TextBlock Text="QUICK ACCESS"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="10,2,0,6" />
+
+                            <ItemsControl ItemsSource="{Binding QuickAccessNodes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type models:SidebarNode}">
+                                        <Border CornerRadius="6"
+                                                Padding="{Binding DataContext.SidebarItemPadding, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='10,4.7'}"
+                                                Margin="{Binding DataContext.SidebarItemMargin, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='2,1'}"
+                                                Cursor="Hand"
+                                                AllowDrop="True"
+                                                DragOver="OnSidebarNodeDragOver"
+                                                Drop="OnSidebarNodeDrop"
+                                                MouseLeftButtonUp="OnQuickAccessClick"
+                                                MouseDown="OnSidebarMiddleClick">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                                        </Trigger>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource BgSelectionBrush}" />
+                                                        </DataTrigger>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsSelected}" Value="True" />
+                                                                <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Background" Value="{DynamicResource BgSelectionHoverBrush}" />
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Open in New Tab" Click="OnSidebarOpenNewTabClick" />
+                                                    <MenuItem Header="Open in Split Pane" Click="OnSidebarOpenSplitClick" />
+                                                    <MenuItem Header="Unpin from Quick Access"
+                                                              Click="OnSidebarUnpinClick"
+                                                              Visibility="{Binding PlacementTarget.DataContext.IsPinned, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVis}}" />
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="{Binding DataContext.SidebarIconColumnWidth, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=24}" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Image Grid.Column="0"
+                                                       Source="{Binding Icon}"
+                                                       Width="16" Height="16"
+                                                       HorizontalAlignment="Left"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="{Binding Icon, Converter={StaticResource NullToVis}}" />
+                                                <TextBlock Grid.Column="0"
+                                                           FontFamily="{StaticResource IconFont}"
+                                                           Text="{Binding Glyph}"
+                                                           FontSize="14"
+                                                           Foreground="{DynamicResource AccentBrush}"
+                                                           HorizontalAlignment="Left"
+                                                           VerticalAlignment="Center"
+                                                           Visibility="{Binding Icon, Converter={StaticResource InvNullToVis}}" />
+                                                <controls:SpacedTextBlock Grid.Column="1"
+                                                                          Text="{Binding Title}"
+                                                                          FontSize="{Binding DataContext.SidebarFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          LetterSpacing="{Binding DataContext.LetterSpacing, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=0}"
+                                                                          Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                          TextTrimming="CharacterEllipsis"
+                                                                          VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Text="THIS PC"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="10,16,0,6" />
+
+                            <TreeView x:Name="SidebarDriveTree"
+                                      ItemsSource="{Binding DriveTreeNodes}"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                      ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                      ItemContainerStyle="{StaticResource SidebarTreeItemStyle}"
+                                      TreeViewItem.Expanded="OnSidebarTreeExpanded">
+                                <TreeView.Template>
+                                    <ControlTemplate TargetType="TreeView">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                SnapsToDevicePixels="True">
+                                            <ItemsPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </TreeView.Template>
+                                <TreeView.ItemTemplate>
+                                    <HierarchicalDataTemplate DataType="{x:Type models:SidebarNode}" ItemsSource="{Binding Children}">
+                                        <Grid Background="Transparent"
+                                              AllowDrop="True"
+                                              DragOver="OnSidebarNodeDragOver"
+                                              Drop="OnSidebarNodeDrop"
+                                              MouseDown="OnSidebarMiddleClick">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{Binding DataContext.SidebarIconColumnWidth, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=24}" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Image Grid.Column="0"
+                                                   Source="{Binding Icon}"
+                                                   Width="16" Height="16"
+                                                   HorizontalAlignment="Left"
+                                                   VerticalAlignment="Center" />
+                                            <controls:SpacedTextBlock Grid.Column="1"
+                                                                      Text="{Binding Title}"
+                                                                      FontSize="{Binding DataContext.SidebarFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      LetterSpacing="{Binding DataContext.LetterSpacing, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=0}"
+                                                                      Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                      TextTrimming="CharacterEllipsis"
+                                                                      VerticalAlignment="Center" />
+                                        </Grid>
+                                    </HierarchicalDataTemplate>
+                                </TreeView.ItemTemplate>
+                            </TreeView>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Sidebar Resize Splitter -->
+                <GridSplitter x:Name="SidebarSplitter"
+                              Grid.Column="1"
+                              Width="5"
+                              Margin="-2,0,-2,0"
+                              Panel.ZIndex="20"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Stretch"
+                              ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndNext"
+                              Cursor="SizeWE"
+                              Background="Transparent"
+                              Visibility="{Binding IsSidebarCollapsed, Converter={StaticResource InvBoolToVis}}"
+                              DragCompleted="OnSidebarSplitterDragCompleted">
+                    <GridSplitter.Template>
+                        <ControlTemplate TargetType="GridSplitter">
+                            <Border Background="Transparent">
+                                <Rectangle x:Name="GripLine" Width="2" HorizontalAlignment="Center" Fill="Transparent" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="GripLine" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsDragging" Value="True">
+                                    <Setter TargetName="GripLine" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </GridSplitter.Template>
+                </GridSplitter>
+
+                <!-- Center Single / Dual-Pane Area -->
+                <Grid Grid.Column="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="PrimaryPaneColumn" Width="*" MinWidth="240" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition x:Name="SecondaryPaneColumn" Width="0" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Primary Pane -->
+                    <controls:ExplorerPaneView x:Name="PrimaryPaneView"
+                                               Grid.Column="0"
+                                               DataContext="{Binding ActiveTab.PrimaryPane}" />
+
+                    <!-- Dual-Pane Splitter -->
+                    <GridSplitter Grid.Column="1"
+                                  Width="5"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Stretch"
+                                  Background="{DynamicResource BorderSubtleBrush}"
+                                  Visibility="{Binding ActiveTab.IsSplitView, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- Secondary Pane -->
+                    <controls:ExplorerPaneView x:Name="SecondaryPaneView"
+                                               Grid.Column="2"
+                                               DataContext="{Binding ActiveTab.SecondaryPane}"
+                                               Visibility="{Binding DataContext.ActiveTab.IsSplitView, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+
+                <!-- Preview Resize Splitter -->
+                <GridSplitter x:Name="PreviewSplitter"
+                              Grid.Column="3"
+                              Width="5"
+                              Margin="-2,0,-2,0"
+                              Panel.ZIndex="20"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Stretch"
+                              ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndNext"
+                              Cursor="SizeWE"
+                              Background="Transparent"
+                              Visibility="{Binding IsPreviewPaneOpen, Converter={StaticResource BoolToVis}}"
+                              DragCompleted="OnPreviewSplitterDragCompleted">
+                    <GridSplitter.Template>
+                        <ControlTemplate TargetType="GridSplitter">
+                            <Border Background="Transparent">
+                                <Rectangle x:Name="GripLine" Width="2" HorizontalAlignment="Center" Fill="Transparent" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="GripLine" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsDragging" Value="True">
+                                    <Setter TargetName="GripLine" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </GridSplitter.Template>
+                </GridSplitter>
+
+                <!-- Preview Inspector -->
+                <controls:PreviewInspectorView x:Name="PreviewInspectorControl"
+                                               Grid.Column="4"
+                                               Visibility="{Binding IsPreviewPaneOpen, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Customize Drawer -->
+                <controls:CustomizeDrawerView Grid.Column="5"
+                                              Width="360"
+                                              Visibility="{Binding IsCustomizePaneOpen, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Floating File Operation Progress Card -->
+                <Border Grid.Column="2"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Margin="0,0,18,40"
+                        Width="310"
+                        Background="{DynamicResource BgElevatedBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="14"
+                        Visibility="{Binding IsOperationRunning, Converter={StaticResource BoolToVis}}">
+                    <StackPanel DataContext="{Binding ActiveOperationProgress}">
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="{Binding OperationName}"
+                                       FontSize="12.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <Button Style="{StaticResource IconButtonStyle}"
+                                    HorizontalAlignment="Right"
+                                    Width="22" Height="22"
+                                    FontSize="9"
+                                    Content="&#xE711;"
+                                    ToolTip="Cancel operation"
+                                    Command="{Binding DataContext.CancelOperationCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        </Grid>
+                        <TextBlock Text="{Binding CurrentItem}"
+                                   FontSize="11.5"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="0,0,0,8" />
+                        <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Floating Toast Notification -->
+                <Border Grid.Column="2"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Bottom"
+                        Margin="0,0,0,42"
+                        Background="{DynamicResource BgElevatedBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="20"
+                        Padding="16,7"
+                        IsHitTestVisible="False"
+                        Visibility="{Binding IsToastVisible, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="{Binding ToastMessage}"
+                               FontSize="12"
+                               FontWeight="Medium"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </Border>
+            </Grid>
+
+            <!-- 4. Centered Floating Zoom Preview Overlay (Google Drive / QuickLook Style) -->
+            <Grid x:Name="FloatingPreviewOverlay"
+                  Grid.Row="0"
+                  Grid.RowSpan="3"
+                  Panel.ZIndex="100"
+                  IsHitTestVisible="True"
+                  Visibility="Collapsed"
+                  Opacity="0">
+                <Border Background="#8C080706"
+                        MouseLeftButtonDown="OnFloatingBackdropClick" />
+
+                <Grid Margin="48">
+                    <Border x:Name="FloatingPreviewCard"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            MinWidth="440"
+                            MaxWidth="980"
+                            MaxHeight="720"
+                            Background="{DynamicResource BgElevatedBrush}"
+                            BorderBrush="{DynamicResource BorderStrongBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Padding="20"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform x:Name="FloatingPreviewScale" ScaleX="0.93" ScaleY="0.93" />
+                        </Border.RenderTransform>
+                        <Border.Effect>
+                            <DropShadowEffect Color="Black" BlurRadius="44" ShadowDepth="12" Direction="270" Opacity="0.55" />
+                        </Border.Effect>
+
+                        <Grid DataContext="{Binding CurrentPreview}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Header Bar -->
+                            <Grid Grid.Row="0" Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0"
+                                        Width="38" Height="38"
+                                        CornerRadius="8"
+                                        Background="{DynamicResource BgContentBrush}"
+                                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                        BorderThickness="1"
+                                        Padding="4"
+                                        Margin="0,0,12,0"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding PreviewImage, Converter={StaticResource NullToVis}}">
+                                    <Image Source="{Binding PreviewImage}"
+                                           Stretch="Uniform"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                        <TextBlock Text="{Binding Subtitle}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <Border Background="{DynamicResource AccentSoftBrush}"
+                                                CornerRadius="4"
+                                                Padding="7,1.5"
+                                                Margin="10,0,0,0"
+                                                Visibility="{Binding PreviewBadge, Converter={StaticResource NullToVis}}">
+                                            <TextBlock Text="{Binding PreviewBadge}"
+                                                       FontSize="10.5"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource AccentBrush}" />
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            Margin="14,0,0,0">
+                                    <TextBlock Text="{Binding ExactSizeText}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,12,0"
+                                               Visibility="{Binding ExactSizeText, Converter={StaticResource NullToVis}}" />
+
+                                    <Border Background="{DynamicResource BgContentBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="2"
+                                            Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Style="{StaticResource IconButtonStyle}"
+                                                    Width="26" Height="26"
+                                                    FontSize="11"
+                                                    Content="&#xE738;"
+                                                    ToolTip="Zoom out (-)"
+                                                    Click="OnFloatingZoomOutClick" />
+                                            <Button x:Name="FloatingZoomResetButton"
+                                                    Style="{StaticResource IconButtonStyle}"
+                                                    MinWidth="46" Height="26"
+                                                    Padding="6,0"
+                                                    FontFamily="{StaticResource MonoFont}"
+                                                    FontSize="11"
+                                                    Content="100%"
+                                                    ToolTip="Reset zoom (0)"
+                                                    Click="OnFloatingZoomResetClick" />
+                                            <Button Style="{StaticResource IconButtonStyle}"
+                                                    Width="26" Height="26"
+                                                    FontSize="11"
+                                                    Content="&#xE710;"
+                                                    ToolTip="Zoom in (+)"
+                                                    Click="OnFloatingZoomInClick" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Button x:Name="CloseFloatingPreviewButton"
+                                            Style="{StaticResource IconButtonStyle}"
+                                            Width="30" Height="30"
+                                            FontSize="11"
+                                            Content="&#xE711;"
+                                            ToolTip="Close preview (Esc)"
+                                            Click="OnCloseFloatingPreviewClick" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Visual Image / Font / Shell Thumbnail Stage -->
+                            <Border Grid.Row="1"
+                                    Background="{DynamicResource BgContentBrush}"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="10"
+                                    Visibility="{Binding IsVisualThumbnail, Converter={StaticResource BoolToVis}}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <ScrollViewer x:Name="FloatingImageScrollViewer"
+                                                  Grid.Row="0"
+                                                  MaxWidth="920"
+                                                  MaxHeight="540"
+                                                  HorizontalScrollBarVisibility="Auto"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  PanningMode="Both"
+                                                  PreviewMouseWheel="OnFloatingStagePreviewMouseWheel"
+                                                  PreviewMouseLeftButtonDown="OnFloatingPanStart"
+                                                  PreviewMouseMove="OnFloatingPanMove"
+                                                  PreviewMouseLeftButtonUp="OnFloatingPanEnd">
+                                        <Image Source="{Binding PreviewImage}"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality"
+                                               MaxWidth="900"
+                                               MaxHeight="520"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center">
+                                            <Image.LayoutTransform>
+                                                <ScaleTransform x:Name="FloatingImageZoom" ScaleX="1" ScaleY="1" />
+                                            </Image.LayoutTransform>
+                                        </Image>
+                                    </ScrollViewer>
+                                    <TextBlock Grid.Row="1"
+                                               Text="{Binding ImageDimensions}"
+                                               FontSize="11.5"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,10,0,0"
+                                               Visibility="{Binding ImageDimensions, Converter={StaticResource NullToVis}}" />
+                                </Grid>
+                            </Border>
+
+                            <!-- Live Video Zoom Stage (mirrors live MediaElement without audio echo) -->
+                            <Border Grid.Row="1"
+                                    Background="#0D0D0D"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="8"
+                                    Visibility="{Binding IsVideo, Converter={StaticResource BoolToVis}}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <ScrollViewer x:Name="FloatingVideoScrollViewer"
+                                                  Grid.Row="0"
+                                                  MaxWidth="900"
+                                                  MaxHeight="510"
+                                                  HorizontalScrollBarVisibility="Auto"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  PanningMode="Both"
+                                                  PreviewMouseWheel="OnFloatingStagePreviewMouseWheel"
+                                                  PreviewMouseLeftButtonDown="OnFloatingPanStart"
+                                                  PreviewMouseMove="OnFloatingPanMove"
+                                                  PreviewMouseLeftButtonUp="OnFloatingPanEnd">
+                                        <Rectangle MinWidth="520"
+                                                   MinHeight="300"
+                                                   MaxWidth="880"
+                                                   MaxHeight="490"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center">
+                                            <Rectangle.LayoutTransform>
+                                                <ScaleTransform x:Name="FloatingVideoZoom" ScaleX="1" ScaleY="1" />
+                                            </Rectangle.LayoutTransform>
+                                            <Rectangle.Fill>
+                                                <VisualBrush Visual="{Binding ElementName=PreviewInspectorControl, Path=VideoPlayerElement}"
+                                                             Stretch="Uniform" />
+                                            </Rectangle.Fill>
+                                        </Rectangle>
+                                    </ScrollViewer>
+                                    <StackPanel Grid.Row="1" Margin="4,8,4,2">
+                                        <Slider x:Name="FloatingVideoSeekSlider"
+                                                Margin="0,0,0,6"
+                                                Minimum="0"
+                                                Maximum="1"
+                                                Value="0"
+                                                IsMoveToPointEnabled="True"
+                                                PreviewMouseLeftButtonDown="OnFloatingVideoSeekStart"
+                                                PreviewMouseLeftButtonUp="OnFloatingVideoSeekEnd"
+                                                ValueChanged="OnFloatingVideoSeekValueChanged" />
+                                        <Grid>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                <Button x:Name="FloatingVideoPlayPauseButton"
+                                                        Style="{StaticResource IconButtonStyle}"
+                                                        Width="28" Height="26"
+                                                        FontSize="11"
+                                                        Content="&#xE769;"
+                                                        ToolTip="Play / Pause (Space or K)"
+                                                        Click="OnFloatingVideoPlayPauseClick" />
+                                                <Button Style="{StaticResource IconButtonStyle}"
+                                                        Width="28" Height="26"
+                                                        Margin="4,0,0,0"
+                                                        FontSize="11"
+                                                        Content="&#xED3C;"
+                                                        ToolTip="Back 10s (J)"
+                                                        Click="OnFloatingVideoBackClick" />
+                                                <Button Style="{StaticResource IconButtonStyle}"
+                                                        Width="28" Height="26"
+                                                        Margin="4,0,0,0"
+                                                        FontSize="11"
+                                                        Content="&#xED3D;"
+                                                        ToolTip="Forward 10s (L)"
+                                                        Click="OnFloatingVideoForwardClick" />
+                                                <Button x:Name="FloatingVideoMuteButton"
+                                                        Style="{StaticResource IconButtonStyle}"
+                                                        Width="28" Height="26"
+                                                        Margin="4,0,0,0"
+                                                        FontSize="11"
+                                                        Content="&#xE74F;"
+                                                        ToolTip="Unmute / Mute (M)"
+                                                        Click="OnFloatingVideoMuteClick" />
+                                                <Slider x:Name="FloatingVideoVolumeSlider"
+                                                        Width="76"
+                                                        Margin="6,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Minimum="0"
+                                                        Maximum="1"
+                                                        Value="0.85"
+                                                        IsMoveToPointEnabled="True"
+                                                        ToolTip="Volume (↑ / ↓)"
+                                                        ValueChanged="OnFloatingVideoVolumeChanged" />
+                                                <TextBlock x:Name="FloatingVideoTimeText"
+                                                           Text="0:00"
+                                                           FontSize="11"
+                                                           FontFamily="{StaticResource MonoFont}"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="10,0,0,0" />
+                                            </StackPanel>
+                                            <TextBlock Text="Space/K Play • M Mute • ←/→ ±5s • J/L ±10s • Wheel Zoom"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                       VerticalAlignment="Center"
+                                                       HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Text / Code / Archive / App Guidance / Folder Zoom Stage -->
+                            <Border Grid.Row="1"
+                                    MinWidth="580"
+                                    MaxWidth="900"
+                                    Background="{DynamicResource BgInputBrush}"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="16"
+                                    ClipToBounds="True">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsVisualThumbnail}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                                        <TextBlock Text="{Binding TextStats}"
+                                                   FontSize="11.5"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   HorizontalAlignment="Left"
+                                                   Visibility="{Binding TextStats, Converter={StaticResource NullToVis}}" />
+                                        <TextBlock Text="{Binding ImageDimensions}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   HorizontalAlignment="Right"
+                                                   Visibility="{Binding ImageDimensions, Converter={StaticResource NullToVis}}" />
+                                    </Grid>
+
+                                    <ScrollViewer x:Name="FloatingTextScrollViewer"
+                                                  Grid.Row="1"
+                                                  MaxHeight="500"
+                                                  HorizontalScrollBarVisibility="Auto"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  PreviewMouseWheel="OnFloatingStagePreviewMouseWheel"
+                                                  Visibility="{Binding TextContent, Converter={StaticResource NullToVis}}">
+                                        <TextBlock Text="{Binding TextContent}"
+                                                   FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="12.5"
+                                                   LineHeight="19"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextWrapping="NoWrap">
+                                            <TextBlock.LayoutTransform>
+                                                <ScaleTransform x:Name="FloatingTextZoom" ScaleX="1" ScaleY="1" />
+                                            </TextBlock.LayoutTransform>
+                                        </TextBlock>
+                                    </ScrollViewer>
+
+                                    <Image Grid.Row="1"
+                                           Source="{Binding PreviewImage}"
+                                           Width="128" Height="128"
+                                           Stretch="Uniform"
+                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding TextContent, Converter={StaticResource InvNullToVis}}" />
+                                </Grid>
+                            </Border>
+
+                            <!-- Footer Strip -->
+                            <Grid Grid.Row="2" Margin="0,12,0,0">
+                                <TextBlock Text="{Binding FullPath}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           TextTrimming="CharacterEllipsis"
+                                           HorizontalAlignment="Left"
+                                           MaxWidth="640" />
+                                <TextBlock FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           HorizontalAlignment="Right">
+                                    <Run Text="Modified " />
+                                    <Run Text="{Binding ModifiedText, Mode=OneWay}" />
+                                </TextBlock>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

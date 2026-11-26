@@ -1,0 +1,38 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <FontFamily x:Key="AppFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
+    <CornerRadius x:Key="CardCornerRadius">10</CornerRadius>
+    <CornerRadius x:Key="PillCornerRadius">12</CornerRadius>
+    <Thickness x:Key="SurfaceBorderThickness">1</Thickness>
+
+    <SolidColorBrush x:Key="BgWindowBrush" Color="#161311" />
+    <SolidColorBrush x:Key="BgSidebarBrush" Color="#1D1916" />
+    <SolidColorBrush x:Key="HeaderSurfaceBrush" Color="#1D1916" />
+    <SolidColorBrush x:Key="HomeHeroBrush" Color="#241B15" />
+    <SolidColorBrush x:Key="BgContentBrush" Color="#231E1B" />
+    <SolidColorBrush x:Key="BgElevatedBrush" Color="#2C2622" />
+    <SolidColorBrush x:Key="BgInputBrush" Color="#1A1614" />
+    <SolidColorBrush x:Key="BgHoverBrush" Color="#332C27" />
+    <SolidColorBrush x:Key="BgPressedBrush" Color="#3E352F" />
+    <SolidColorBrush x:Key="BgSelectionBrush" Color="#422B1E" />
+    <SolidColorBrush x:Key="BgSelectionHoverBrush" Color="#513424" />
+
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#352E29" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#4C423B" />
+
+    <SolidColorBrush x:Key="AccentBrush" Color="#D87A44" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#E68F5C" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#332218" />
+
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F4EDE7" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B6A89D" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#85786E" />
+    <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFBF7" />
+
+    <SolidColorBrush x:Key="DangerBrush" Color="#E06C65" />
+    <SolidColorBrush x:Key="DangerHoverBrush" Color="#C42B1C" />
+    <SolidColorBrush x:Key="ProgressTrackBrush" Color="#37302B" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#564B43" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#74665C" />
+</ResourceDictionary>
