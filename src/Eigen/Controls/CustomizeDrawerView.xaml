@@ -176,7 +176,7 @@
 
                             <!-- Icon Left Gap -->
                             <Grid Margin="0,0,0,2">
-                                <TextBlock Text="Icon Left Space" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="Icon Left Padding" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding IconLeftGap, StringFormat={}{0:0}}" /><Run Text=" px" />
                                 </TextBlock>
