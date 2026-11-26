@@ -1564,6 +1564,34 @@ public class EigenTests : IDisposable
             throw new Exception("Floating preview STA test failed", threadEx);
     }
 
+    [Fact]
+    public void VectorIconPackService_RendersAllIconPacksAcrossCategories()
+    {
+        var skin = ThemeCatalogService.GetById("default");
+        var customPacks = Enum.GetValues<IconPackStyle>()
+            .Where(p => p is not IconPackStyle.Auto and not IconPackStyle.Native)
+            .ToList();
+
+        Assert.Contains(IconPackStyle.Fluent3D, customPacks);
+        Assert.Contains(IconPackStyle.SoftPastel, customPacks);
+        Assert.Contains(IconPackStyle.MonochromeInk, customPacks);
+        Assert.Contains(IconPackStyle.BlueprintGrid, customPacks);
+
+        foreach (var pack in customPacks)
+        {
+            var folderIcon = VectorIconPackService.GetThemedIcon(pack, @"C:\Test", isDirectory: true, isDrive: false, skin);
+            var driveIcon = VectorIconPackService.GetThemedIcon(pack, @"C:\", isDirectory: true, isDrive: true, skin);
+            var codeIcon = VectorIconPackService.GetThemedIcon(pack, @"C:\Test\app.cs", isDirectory: false, isDrive: false, skin);
+            var videoIcon = VectorIconPackService.GetThemedIcon(pack, @"C:\Test\clip.mp4", isDirectory: false, isDrive: false, skin);
+
+            Assert.NotNull(folderIcon);
+            Assert.NotNull(driveIcon);
+            Assert.NotNull(codeIcon);
+            Assert.NotNull(videoIcon);
+            Assert.True(folderIcon.IsFrozen);
+        }
+    }
+
     private sealed class SyncProgress<T>(Action<T> handler) : IProgress<T>
     {
         public void Report(T value) => handler(value);

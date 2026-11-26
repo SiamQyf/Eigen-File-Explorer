@@ -48,5 +48,9 @@ public enum IconPackStyle
     GlassFrost,
     RetroPixel,
     DuotoneMinimal,
-    TactileBrutal
+    TactileBrutal,
+    Fluent3D,
+    SoftPastel,
+    MonochromeInk,
+    BlueprintGrid
 }

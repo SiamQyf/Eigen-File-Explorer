@@ -165,7 +165,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         IconPackStyle.GlassFrost,
         IconPackStyle.RetroPixel,
         IconPackStyle.DuotoneMinimal,
-        IconPackStyle.TactileBrutal
+        IconPackStyle.TactileBrutal,
+        IconPackStyle.Fluent3D,
+        IconPackStyle.SoftPastel,
+        IconPackStyle.MonochromeInk,
+        IconPackStyle.BlueprintGrid
     ];
 
     public IReadOnlyList<FontOption> AvailableFonts => FontCatalogService.GetInstalledFonts();

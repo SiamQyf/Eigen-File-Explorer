@@ -124,6 +124,18 @@ public static class VectorIconPackService
             case IconPackStyle.TactileBrutal:
                 DrawTactileBrutal(group, category, accent, accentHover, textPrimary, bgElevated, onAccent);
                 break;
+            case IconPackStyle.Fluent3D:
+                DrawFluent3D(group, category, accent, accentHover, textPrimary, bgElevated, onAccent);
+                break;
+            case IconPackStyle.SoftPastel:
+                DrawSoftPastel(group, category, accent, accentHover, textPrimary, bgContent, onAccent);
+                break;
+            case IconPackStyle.MonochromeInk:
+                DrawMonochromeInk(group, category, accent, textPrimary, textSecondary, bgContent);
+                break;
+            case IconPackStyle.BlueprintGrid:
+                DrawBlueprintGrid(group, category, accent, accentHover, textPrimary, bgContent);
+                break;
             case IconPackStyle.DuotoneMinimal:
             default:
                 DrawDuotoneMinimal(group, category, accent, accentHover, textSecondary, onAccent);
@@ -295,6 +307,130 @@ public static class VectorIconPackService
         g.Children.Add(new GeometryDrawing(pageBrush, null, page));
         g.Children.Add(new GeometryDrawing(soft, null, Geometry.Parse("M 19.5,3 L 19.5,9.5 L 26,9.5 Z")));
         DrawCategoryGlyph(g, cat, onAccent, FrozenPen(onAccent, 1.55));
+    }
+
+    private static void DrawFluent3D(DrawingGroup g, IconCategory cat, Color accent, Color glow, Color text, Color bgElevated, Color onAccent)
+    {
+        var shadow = FrozenBrush(Color.FromArgb(65, 0, 0, 0));
+        var backGrad = new LinearGradientBrush(accent, Color.FromRgb((byte)(accent.R * 0.72), (byte)(accent.G * 0.72), (byte)(accent.B * 0.72)), 90);
+        backGrad.Freeze();
+        var frontGrad = new LinearGradientBrush(glow, accent, 90);
+        frontGrad.Freeze();
+        var paper = FrozenBrush(Color.FromArgb(235, 250, 250, 252));
+        var rimPen = FrozenPen(Color.FromArgb(110, 255, 255, 255), 0.9);
+
+        if (cat == IconCategory.Folder)
+        {
+            g.Children.Add(new GeometryDrawing(shadow, null, new RectangleGeometry(new Rect(3.5, 11.5, 25.5, 16.5), 3.5, 3.5)));
+            g.Children.Add(new GeometryDrawing(backGrad, null, Geometry.Parse("M 3,7.5 C 3,6.4 3.9,5.5 5,5.5 L 12.2,5.5 L 14.8,8.5 L 27,8.5 C 28.1,8.5 29,9.4 29,10.5 L 29,24.5 C 29,25.6 28.1,26.5 27,26.5 L 5,26.5 C 3.9,26.5 3,25.6 3,24.5 Z")));
+            g.Children.Add(new GeometryDrawing(paper, null, new RectangleGeometry(new Rect(5.5, 9.8, 21, 5), 1.5, 1.5)));
+            g.Children.Add(new GeometryDrawing(frontGrad, rimPen, new RectangleGeometry(new Rect(3, 12, 26, 14.5), 3.5, 3.5)));
+            return;
+        }
+
+        if (cat == IconCategory.Drive)
+        {
+            g.Children.Add(new GeometryDrawing(shadow, null, new RectangleGeometry(new Rect(3.5, 9, 25.5, 16), 4, 4)));
+            g.Children.Add(new GeometryDrawing(frontGrad, rimPen, new RectangleGeometry(new Rect(3, 8, 26, 15.5), 4, 4)));
+            g.Children.Add(new GeometryDrawing(FrozenBrush(Color.FromArgb(90, 0, 0, 0)), null, new RectangleGeometry(new Rect(5.5, 17.5, 14, 3), 1.5, 1.5)));
+            g.Children.Add(new GeometryDrawing(FrozenBrush(onAccent), null, new EllipseGeometry(new Point(24, 19), 2, 2)));
+            return;
+        }
+
+        g.Children.Add(new GeometryDrawing(shadow, null, new RectangleGeometry(new Rect(6.8, 4, 20, 25.5), 3, 3)));
+        var page = Geometry.Parse("M 6,4.5 C 6,3.7 6.7,3 7.5,3 L 19.5,3 L 26,9.5 L 26,27.5 C 26,28.3 25.3,29 24.5,29 L 7.5,29 C 6.7,29 6,28.3 6,27.5 Z");
+        var docGrad = cat == IconCategory.Generic
+            ? FrozenBrush(bgElevated)
+            : frontGrad;
+        g.Children.Add(new GeometryDrawing(docGrad, rimPen, page));
+        g.Children.Add(new GeometryDrawing(FrozenBrush(Color.FromArgb(130, 255, 255, 255)), null, Geometry.Parse("M 19.5,3 L 19.5,9.5 L 26,9.5 Z")));
+        var glyphCol = cat == IconCategory.Generic ? text : onAccent;
+        DrawCategoryGlyph(g, cat, glyphCol, FrozenPen(glyphCol, 1.6));
+    }
+
+    private static void DrawSoftPastel(DrawingGroup g, IconCategory cat, Color accent, Color glow, Color text, Color bg, Color onAccent)
+    {
+        var pastelFill = FrozenBrush(Color.FromArgb(72, glow.R, glow.G, glow.B));
+        var pillFill = FrozenBrush(Color.FromArgb(200, accent.R, accent.G, accent.B));
+        var softPen = FrozenPen(accent, 1.7);
+
+        if (cat == IconCategory.Folder)
+        {
+            g.Children.Add(new GeometryDrawing(pastelFill, softPen, Geometry.Parse("M 3,8.5 C 3,6.8 4.4,5.5 6,5.5 L 12,5.5 L 14.5,8.5 L 26,8.5 C 27.7,8.5 29,9.8 29,11.5 L 29,24 C 29,25.7 27.7,27 26,27 L 6,27 C 4.3,27 3,25.7 3,24 Z")));
+            g.Children.Add(new GeometryDrawing(pillFill, null, new RectangleGeometry(new Rect(5.5, 13.5, 21, 11), 4, 4)));
+            return;
+        }
+
+        if (cat == IconCategory.Drive)
+        {
+            g.Children.Add(new GeometryDrawing(pastelFill, softPen, new RectangleGeometry(new Rect(3, 8, 26, 16), 7, 7)));
+            g.Children.Add(new GeometryDrawing(pillFill, null, new EllipseGeometry(new Point(22.5, 16), 3.2, 3.2)));
+            g.Children.Add(new GeometryDrawing(null, softPen, new LineGeometry(new Point(7.5, 16), new Point(16.5, 16))));
+            return;
+        }
+
+        var card = new RectangleGeometry(new Rect(5.5, 3, 21, 26), 6, 6);
+        g.Children.Add(new GeometryDrawing(pastelFill, softPen, card));
+        g.Children.Add(new GeometryDrawing(pillFill, null, new EllipseGeometry(new Point(22, 7.5), 2.3, 2.3)));
+        DrawCategoryGlyph(g, cat, accent, FrozenPen(accent, 1.65));
+    }
+
+    private static void DrawMonochromeInk(DrawingGroup g, IconCategory cat, Color accent, Color text, Color textSec, Color bg)
+    {
+        var inkPen = FrozenPen(text, 1.75);
+        var finePen = FrozenPen(textSec, 1.25);
+        var paperFill = FrozenBrush(Color.FromArgb(24, text.R, text.G, text.B));
+        var dotBrush = FrozenBrush(accent);
+
+        if (cat == IconCategory.Folder)
+        {
+            g.Children.Add(new GeometryDrawing(paperFill, inkPen, Geometry.Parse("M 3,8 C 3,6.9 3.9,6 5,6 L 12,6 L 14.5,9 L 27,9 C 28.1,9 29,9.9 29,11 L 29,25 C 29,26.1 28.1,27 27,27 L 5,27 C 3.9,27 3,26.1 3,25 Z")));
+            g.Children.Add(new GeometryDrawing(null, finePen, new LineGeometry(new Point(5.5, 13), new Point(26.5, 13))));
+            g.Children.Add(new GeometryDrawing(dotBrush, null, new EllipseGeometry(new Point(24.5, 22.5), 1.8, 1.8)));
+            return;
+        }
+
+        if (cat == IconCategory.Drive)
+        {
+            g.Children.Add(new GeometryDrawing(paperFill, inkPen, new RectangleGeometry(new Rect(3, 8, 26, 16), 2.5, 2.5)));
+            g.Children.Add(new GeometryDrawing(null, finePen, new LineGeometry(new Point(6, 18.5), new Point(20, 18.5))));
+            g.Children.Add(new GeometryDrawing(dotBrush, null, new EllipseGeometry(new Point(24.5, 18.5), 1.9, 1.9)));
+            return;
+        }
+
+        var page = Geometry.Parse("M 6,3 L 20,3 L 26,9 L 26,28 C 26,28.6 25.6,29 25,29 L 7,29 C 6.4,29 6,28.6 6,28 Z");
+        g.Children.Add(new GeometryDrawing(paperFill, inkPen, page));
+        g.Children.Add(new GeometryDrawing(null, finePen, Geometry.Parse("M 20,3 L 20,9 L 26,9")));
+        DrawCategoryGlyph(g, cat, text, FrozenPen(text, 1.6));
+    }
+
+    private static void DrawBlueprintGrid(DrawingGroup g, IconCategory cat, Color accent, Color glow, Color text, Color bg)
+    {
+        var gridFill = FrozenBrush(Color.FromArgb(42, accent.R, accent.G, accent.B));
+        var gridPen = FrozenPen(Color.FromArgb(85, glow.R, glow.G, glow.B), 0.75);
+        var draftPen = FrozenPen(glow, 1.5);
+        var tickPen = FrozenPen(accent, 1.2);
+
+        if (cat == IconCategory.Folder)
+        {
+            g.Children.Add(new GeometryDrawing(gridFill, draftPen, Geometry.Parse("M 3,7.5 L 12,7.5 L 14.5,10 L 29,10 L 29,26.5 L 3,26.5 Z")));
+            g.Children.Add(new GeometryDrawing(null, gridPen, Geometry.Parse("M 8,10 L 8,26.5 M 16,10 L 16,26.5 M 24,10 L 24,26.5 M 3,16 L 29,16 M 3,21.5 L 29,21.5")));
+            return;
+        }
+
+        if (cat == IconCategory.Drive)
+        {
+            g.Children.Add(new GeometryDrawing(gridFill, draftPen, new RectangleGeometry(new Rect(3, 8, 26, 16), 1, 1)));
+            g.Children.Add(new GeometryDrawing(null, gridPen, Geometry.Parse("M 10,8 L 10,24 M 18,8 L 18,24 M 3,16 L 29,16")));
+            g.Children.Add(new GeometryDrawing(FrozenBrush(glow), null, new RectangleGeometry(new Rect(22.5, 18.5, 3, 3))));
+            return;
+        }
+
+        var doc = Geometry.Parse("M 6,3 L 20.5,3 L 26,8.5 L 26,29 L 6,29 Z");
+        g.Children.Add(new GeometryDrawing(gridFill, draftPen, doc));
+        g.Children.Add(new GeometryDrawing(null, gridPen, Geometry.Parse("M 12.5,3 L 12.5,29 M 19.5,3 L 19.5,29 M 6,11 L 26,11 M 6,21 L 26,21")));
+        g.Children.Add(new GeometryDrawing(null, tickPen, Geometry.Parse("M 20.5,3 L 20.5,8.5 L 26,8.5")));
+        DrawCategoryGlyph(g, cat, glow, FrozenPen(glow, 1.5));
     }
 
     private static void DrawCategoryGlyph(DrawingGroup g, IconCategory cat, Color color, Pen pen)
