@@ -74,7 +74,7 @@
                                 <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" IsTabStop="False" />
                             </Track.DecreaseRepeatButton>
                             <Track.Thumb>
-                                <Thumb Style="{StaticResource EigenScrollThumbStyle}" />
+                                <Thumb x:Name="ScrollThumb" Style="{StaticResource EigenScrollThumbStyle}" MinHeight="28" />
                             </Track.Thumb>
                             <Track.IncreaseRepeatButton>
                                 <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" IsTabStop="False" />
@@ -88,6 +88,8 @@
                             <Setter Property="Height" Value="10" />
                             <Setter Property="MinHeight" Value="10" />
                             <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                            <Setter TargetName="ScrollThumb" Property="MinHeight" Value="0" />
+                            <Setter TargetName="ScrollThumb" Property="MinWidth" Value="28" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -567,6 +569,7 @@
     <!-- Themed ComboBox & ComboBoxItem -->
     <Style TargetType="ComboBoxItem">
         <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
         <Setter Property="FontSize" Value="12" />
@@ -680,7 +683,11 @@
                                         CornerRadius="{DynamicResource CardCornerRadius}"
                                         Margin="0,3,0,0"
                                         Padding="3">
-                                    <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto">
+                                    <ScrollViewer x:Name="DropDownScrollViewer"
+                                                  MaxHeight="272"
+                                                  CanContentScroll="False"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
                                         <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
                                     </ScrollViewer>
                                 </Border>

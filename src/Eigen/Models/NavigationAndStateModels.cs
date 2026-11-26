@@ -139,6 +139,7 @@ public sealed class AppSettings
     public double SidebarVerticalGap { get; set; } = 1.0;
     public double HomeVerticalGap { get; set; } = 24.0;
     public double ItemIconSize { get; set; } = 15.0;
+    public double TileIconSize { get; set; } = 48.0;
     public double IconLeftGap { get; set; } = 4.0;
     public double IconTextHorizontalGap { get; set; } = 8.0;
     public double IconTextVerticalGap { get; set; } = 6.0;
@@ -146,6 +147,9 @@ public sealed class AppSettings
     public string FontFamilyOverride { get; set; } = "Auto";
     public int FontWeightValue { get; set; } = 400;
     public double LetterSpacing { get; set; } = 0.0;
+    public double IconTransparency { get; set; } = 0.0;
+    public double TextTransparency { get; set; } = 0.0;
+    public double WindowBrightness { get; set; } = 1.0;
     public double WindowWidth { get; set; } = 1360;
     public double WindowHeight { get; set; } = 840;
     public double SidebarWidth { get; set; } = 246;
@@ -161,4 +165,13 @@ public sealed class FolderColumnWidths
     public double Name { get; set; }
     public double Date { get; set; }
     public double Type { get; set; }
+}
+
+public sealed class IconPackOption
+{
+    public IconPackStyle Style { get; init; }
+    public string DisplayName { get; init; } = string.Empty;
+    public ImageSource? FolderPreview { get; init; }
+    public ImageSource? CodePreview { get; init; }
+    public ImageSource? ImagePreview { get; init; }
 }

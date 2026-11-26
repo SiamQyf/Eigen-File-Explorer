@@ -15,4 +15,8 @@
     <Resource Include="Assets\Eigen.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="SharpCompress" Version="0.50.12" />
+  </ItemGroup>
+
 </Project>

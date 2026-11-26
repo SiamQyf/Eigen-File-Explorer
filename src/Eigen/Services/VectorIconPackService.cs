@@ -93,6 +93,47 @@ public static class VectorIconPackService
         return image;
     }
 
+    public static ImageSource GetEigenArchiverIcon(EigenSkin skin)
+    {
+        var key = $"EigenArchiver|{skin.Accent}|{skin.AccentHover}|{skin.TextPrimary}|{skin.BgContent}|{skin.TextOnAccent}";
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        var accent = (Color)ColorConverter.ConvertFromString(skin.Accent);
+        var accentHover = (Color)ColorConverter.ConvertFromString(skin.AccentHover);
+        var onAccent = (Color)ColorConverter.ConvertFromString(skin.TextOnAccent);
+        var bgElevated = (Color)ColorConverter.ConvertFromString(skin.BgElevated);
+
+        var group = new DrawingGroup();
+        group.Children.Add(new GeometryDrawing(
+            Brushes.Transparent,
+            null,
+            new RectangleGeometry(new Rect(0, 0, 32, 32))));
+
+        // Stacked 3-band Eigen Archiver box (distinctive archive binder look)
+        var topBand = FrozenBrush(accentHover);
+        var midBand = FrozenBrush(accent);
+        var botBand = FrozenBrush(Color.FromRgb((byte)(accent.R * 0.72), (byte)(accent.G * 0.72), (byte)(accent.B * 0.72)));
+        var claspBrush = FrozenBrush(onAccent);
+        var rimPen = FrozenPen(Color.FromArgb(140, bgElevated.R, bgElevated.G, bgElevated.B), 1.0);
+
+        group.Children.Add(new GeometryDrawing(botBand, rimPen, new RectangleGeometry(new Rect(4, 20, 24, 8), 2.5, 2.5)));
+        group.Children.Add(new GeometryDrawing(midBand, rimPen, new RectangleGeometry(new Rect(4, 12, 24, 9), 2.5, 2.5)));
+        group.Children.Add(new GeometryDrawing(topBand, rimPen, new RectangleGeometry(new Rect(4, 4, 24, 9), 2.5, 2.5)));
+
+        // Center zipper clasp & teeth
+        group.Children.Add(new GeometryDrawing(claspBrush, null, new RectangleGeometry(new Rect(13.5, 5.5, 5, 19), 1.5, 1.5)));
+        group.Children.Add(new GeometryDrawing(midBand, null, new RectangleGeometry(new Rect(14.8, 12, 2.4, 5), 0.8, 0.8)));
+
+        group.Freeze();
+        var img = new DrawingImage(group);
+        img.Freeze();
+
+        if (Cache.Count < 4096)
+            Cache.TryAdd(key, img);
+        return img;
+    }
+
     private static ImageSource RenderIcon(IconPackStyle pack, IconCategory category, EigenSkin skin)
     {
         var accent = (Color)ColorConverter.ConvertFromString(skin.Accent);

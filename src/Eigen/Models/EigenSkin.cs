@@ -44,8 +44,11 @@ public sealed class EigenSkin
     public double CardCornerRadius { get; init; } = 10.0;
     public double SurfaceBorderThickness { get; init; } = 1.0;
     public string? HeaderGradientEnd { get; init; }
+    public bool IsTranslucent { get; init; }
 
-    public string AestheticTag => IconPack switch
+    public string AestheticTag => IsTranslucent
+        ? "Translucent • Acrylic"
+        : IconPack switch
     {
         IconPackStyle.NeonWire => "Wire • Mono",
         IconPackStyle.GlassFrost => "Glass • Soft",

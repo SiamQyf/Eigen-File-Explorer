@@ -122,11 +122,18 @@ public sealed class ExplorerTabViewModel : ObservableObject, IDisposable
     public async void SwapPanes()
     {
         if (!IsSplitView || SecondaryPane is null) return;
-        var leftPath = PrimaryPane.CurrentPath;
-        var rightPath = SecondaryPane.CurrentPath;
-        await Task.WhenAll(
-            PrimaryPane.NavigateToAsync(rightPath),
-            SecondaryPane.NavigateToAsync(leftPath));
+        try
+        {
+            var leftPath = PrimaryPane.CurrentPath;
+            var rightPath = SecondaryPane.CurrentPath;
+            await Task.WhenAll(
+                PrimaryPane.NavigateToAsync(rightPath),
+                SecondaryPane.NavigateToAsync(leftPath));
+        }
+        catch
+        {
+            // Ignore navigation errors during pane swap
+        }
     }
 
     private void WirePaneEvents(ExplorerPaneViewModel pane)

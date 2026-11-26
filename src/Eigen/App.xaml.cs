@@ -37,10 +37,19 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+
         EventManager.RegisterClassHandler(
             typeof(ScrollViewer),
             UIElement.PreviewMouseWheelEvent,
             new MouseWheelEventHandler(OnGlobalScrollViewerPreviewMouseWheel));
+
+        EventManager.RegisterClassHandler(
+            typeof(ComboBox),
+            UIElement.PreviewMouseWheelEvent,
+            new MouseWheelEventHandler(OnGlobalComboBoxPreviewMouseWheel));
 
         EventManager.RegisterClassHandler(
             typeof(ScrollViewer),
@@ -56,6 +65,43 @@ public partial class App : Application
         var window = new MainWindow(initialPath);
         MainWindow = window;
         window.Show();
+    }
+
+    private static void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        LogSafeException("Dispatcher", e.Exception);
+        e.Handled = true;
+    }
+
+    private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        LogSafeException("Task", e.Exception);
+        e.SetObserved();
+    }
+
+    private static void OnDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception ex)
+            LogSafeException("Domain", ex);
+    }
+
+    private static void LogSafeException(string source, Exception ex)
+    {
+        try
+        {
+            var dir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Eigen");
+            System.IO.Directory.CreateDirectory(dir);
+            var logPath = System.IO.Path.Combine(dir, "crash.log");
+            if (System.IO.File.Exists(logPath) && new System.IO.FileInfo(logPath).Length > 512 * 1024)
+                System.IO.File.Delete(logPath);
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {ex}\r\n");
+        }
+        catch
+        {
+            // Never throw from exception handler
+        }
     }
 
     private static void OnGlobalScrollViewerStopInertia(object sender, MouseButtonEventArgs e)
@@ -93,10 +139,50 @@ public partial class App : Application
         return null;
     }
 
+    private static void OnGlobalComboBoxPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (e.Handled || e.Delta == 0 || sender is not ComboBox cb || !cb.IsDropDownOpen)
+            return;
+
+        if (cb.Template?.FindName("DropDownScrollViewer", cb) is ScrollViewer dropDownSv &&
+            dropDownSv.ScrollableHeight > 0)
+        {
+            var step = (e.Delta / 120.0) * Math.Max(1, SystemParameters.WheelScrollLines) * 18.0;
+            dropDownSv.ScrollToVerticalOffset(Math.Clamp(dropDownSv.VerticalOffset - step, 0, dropDownSv.ScrollableHeight));
+            e.Handled = true;
+        }
+    }
+
+    private static T? FindVisualOrLogicalAncestor<T>(DependencyObject? dep) where T : DependencyObject
+    {
+        while (dep is not null)
+        {
+            if (dep is T typed) return typed;
+            dep = VisualTreeHelper.GetParent(dep) ?? LogicalTreeHelper.GetParent(dep);
+        }
+        return null;
+    }
+
     private static void OnGlobalScrollViewerPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (e.Handled || e.Delta == 0 || sender is not ScrollViewer sv)
             return;
+
+        if (sv.Name == "DropDownScrollViewer")
+            return;
+
+        if (e.OriginalSource is DependencyObject orig)
+        {
+            if (FindVisualOrLogicalAncestor<ComboBox>(orig) is { IsDropDownOpen: true })
+                return;
+
+            var innerSv = FindVisualOrLogicalAncestor<ScrollViewer>(orig);
+            if (innerSv is not null && !ReferenceEquals(innerSv, sv) &&
+                (innerSv.Name == "DropDownScrollViewer" || innerSv.ScrollableHeight > 0))
+            {
+                return;
+            }
+        }
 
         if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
             return;

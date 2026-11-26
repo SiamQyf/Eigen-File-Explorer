@@ -581,9 +581,12 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
                         if (!string.IsNullOrWhiteSpace(typeName))
                             item.TypeDescription = typeName;
                     }
-                    if (FolderViewCache.Count >= 32)
-                        FolderViewCache.Clear();
-                    FolderViewCache[key] = new CachedFolderEntry(raw, ordered, showHidden, sortField, sortAsc);
+                    if (ordered.Count <= 4000)
+                    {
+                        if (FolderViewCache.Count >= 32)
+                            FolderViewCache.Clear();
+                        FolderViewCache[key] = new CachedFolderEntry(raw, ordered, showHidden, sortField, sortAsc);
+                    }
                 }
                 catch
                 {
@@ -693,9 +696,12 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
 
             if (string.IsNullOrEmpty(query) && !isDeep)
             {
-                if (FolderViewCache.Count >= 32)
-                    FolderViewCache.Clear();
-                FolderViewCache[cacheKey] = new CachedFolderEntry(items, sorted, showHidden, sortField, sortAsc);
+                if (sorted.Count <= 4000)
+                {
+                    if (FolderViewCache.Count >= 32)
+                        FolderViewCache.Clear();
+                    FolderViewCache[cacheKey] = new CachedFolderEntry(items, sorted, showHidden, sortField, sortAsc);
+                }
             }
 
             _rawItems = items;

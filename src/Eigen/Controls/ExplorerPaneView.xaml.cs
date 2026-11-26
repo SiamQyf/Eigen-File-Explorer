@@ -515,8 +515,15 @@ public partial class ExplorerPaneView : UserControl
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            if (HostViewModel is not null)
-                await HostViewModel.CommitRenameAsync(item, tb.Text);
+            try
+            {
+                if (HostViewModel is not null)
+                    await HostViewModel.CommitRenameAsync(item, tb.Text);
+            }
+            catch
+            {
+                item.IsEditing = false;
+            }
         }
         else if (e.Key == Key.Escape)
         {
@@ -527,8 +534,16 @@ public partial class ExplorerPaneView : UserControl
 
     private async void OnInlineRenameLostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        if (sender is TextBox tb && tb.DataContext is FileSystemItem { IsEditing: true } item && HostViewModel is not null)
-            await HostViewModel.CommitRenameAsync(item, tb.Text);
+        try
+        {
+            if (sender is TextBox tb && tb.DataContext is FileSystemItem { IsEditing: true } item && HostViewModel is not null)
+                await HostViewModel.CommitRenameAsync(item, tb.Text);
+        }
+        catch
+        {
+            if (sender is TextBox tb2 && tb2.DataContext is FileSystemItem item2)
+                item2.IsEditing = false;
+        }
     }
 
     private bool IsInDetailsTrailingEmptySpace(ListBox lb, DependencyObject? source, Point posInListBox)
@@ -959,6 +974,198 @@ public partial class ExplorerPaneView : UserControl
     private void OnContextPropertiesClick(object sender, RoutedEventArgs e)
         => HostViewModel?.ShowPropertiesCommand.Execute(null);
 
+    private void OnContextOpenArchiverClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.SelectedItem is { IsDirectory: false } item &&
+            Eigen.Services.ArchiveService.IsArchivePath(item.FullPath))
+        {
+            OpenEigenArchiverWindow(item.FullPath);
+        }
+    }
+
+    private void OnContextArchiverCompressClick(object sender, RoutedEventArgs e)
+    {
+        var paths = GetSelectedOrCurrentPaths();
+        if (paths.Count > 0)
+            ShowCreateArchiveDialog(paths);
+    }
+
+    private void OnContextArchiverExtractHereClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.SelectedItem is { IsDirectory: false } item &&
+            Eigen.Services.ArchiveService.IsArchivePath(item.FullPath))
+        {
+            var dest = Path.GetDirectoryName(item.FullPath);
+            if (!string.IsNullOrEmpty(dest))
+                _ = RunQuickExtractAsync(item.FullPath, dest, createSubfolder: false);
+        }
+    }
+
+    private IReadOnlyList<string> GetSelectedOrCurrentPaths()
+    {
+        if (ViewModel is null) return [];
+        var selected = ViewModel.SelectedItems
+            .Select(i => i.FullPath)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (selected.Count == 0 && ViewModel.SelectedItem is { FullPath.Length: > 0 } single)
+            selected.Add(single.FullPath);
+        return selected;
+    }
+
+    public void InjectEigenArchiverMenu(ContextMenu menu, IReadOnlyList<string> paths, FileSystemItem clickedItem)
+    {
+        if (paths.Count == 0) return;
+
+        var iconFont = TryFindResource("IconFont") as FontFamily ?? new FontFamily("Segoe MDL2 Assets");
+        var accentBrush = TryFindResource("AccentBrush") as Brush ?? Brushes.DodgerBlue;
+
+        var archiverRoot = new MenuItem
+        {
+            Header = "Eigen Archiver",
+            Icon = new TextBlock
+            {
+                FontFamily = iconFont,
+                Text = "\uF012",
+                FontSize = 13,
+                Foreground = accentBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+
+        var isSingleArchive = paths.Count == 1 && !clickedItem.IsDirectory &&
+                              Eigen.Services.ArchiveService.IsArchivePath(paths[0]);
+
+        if (isSingleArchive)
+        {
+            var archivePath = paths[0];
+            var parentDir = Path.GetDirectoryName(archivePath) ?? ViewModel?.CurrentPath ?? string.Empty;
+            var baseName = Eigen.Services.ArchiveService.GetArchiveBaseName(archivePath);
+
+            var openItem = new MenuItem { Header = "Open in Eigen Archiver" };
+            openItem.Click += (_, _) => OpenEigenArchiverWindow(archivePath);
+            archiverRoot.Items.Add(openItem);
+
+            var extractHereItem = new MenuItem { Header = "Extract Here" };
+            extractHereItem.Click += (_, _) => _ = RunQuickExtractAsync(archivePath, parentDir, createSubfolder: false);
+            archiverRoot.Items.Add(extractHereItem);
+
+            var extractSubItem = new MenuItem { Header = $"Extract to \"{baseName}\\\"" };
+            extractSubItem.Click += (_, _) => _ = RunQuickExtractAsync(archivePath, parentDir, createSubfolder: true);
+            archiverRoot.Items.Add(extractSubItem);
+
+            var extractToItem = new MenuItem { Header = "Extract to..." };
+            extractToItem.Click += (_, _) =>
+            {
+                var dlg = new Microsoft.Win32.OpenFolderDialog
+                {
+                    Title = "Eigen Archiver — Extract To",
+                    InitialDirectory = parentDir
+                };
+                if (dlg.ShowDialog(Window.GetWindow(this)) == true && !string.IsNullOrWhiteSpace(dlg.FolderName))
+                    _ = RunQuickExtractAsync(archivePath, dlg.FolderName, createSubfolder: false);
+            };
+            archiverRoot.Items.Add(extractToItem);
+
+            archiverRoot.Items.Add(new Separator());
+        }
+
+        var defaultZipName = Eigen.Services.ArchiveService.GetDefaultArchiveName(paths, Eigen.Services.ArchiveCreateFormat.Zip);
+        var quickZipItem = new MenuItem { Header = $"Add to \"{defaultZipName}\"" };
+        quickZipItem.Click += (_, _) =>
+        {
+            var targetDir = ViewModel is { IsHome: false } ? ViewModel.CurrentPath : (Path.GetDirectoryName(paths[0]) ?? string.Empty);
+            if (!string.IsNullOrEmpty(targetDir))
+            {
+                var outPath = Path.Combine(targetDir, defaultZipName);
+                _ = RunQuickCompressAsync(paths, outPath, Eigen.Services.ArchiveCreateFormat.Zip, Eigen.Services.ArchiveCompressionPreset.Normal);
+            }
+        };
+        archiverRoot.Items.Add(quickZipItem);
+
+        var addArchiveItem = new MenuItem { Header = "Add to archive..." };
+        addArchiveItem.Click += (_, _) => ShowCreateArchiveDialog(paths);
+        archiverRoot.Items.Add(addArchiveItem);
+
+        var insertIndex = menu.Items.Count > 0 && menu.Items[0] is MenuItem first &&
+                          string.Equals(first.Header?.ToString()?.Replace("_", ""), "Open", StringComparison.OrdinalIgnoreCase)
+            ? 1
+            : 0;
+
+        menu.Items.Insert(insertIndex, new Separator());
+        menu.Items.Insert(insertIndex, archiverRoot);
+    }
+
+    private void OpenEigenArchiverWindow(string archivePath)
+    {
+        var win = new Eigen.Views.EigenArchiverWindow(archivePath, async () =>
+        {
+            if (ViewModel is { IsHome: false } pane)
+            {
+                ExplorerPaneViewModel.InvalidateFolderCache(pane.CurrentPath);
+                await pane.RefreshAsync();
+            }
+        })
+        {
+            Owner = Window.GetWindow(this)
+        };
+        win.Show();
+    }
+
+    private void ShowCreateArchiveDialog(IReadOnlyList<string> paths)
+    {
+        var defaultDir = ViewModel is { IsHome: false } ? ViewModel.CurrentPath : (Path.GetDirectoryName(paths[0]) ?? string.Empty);
+        var dlg = new Eigen.Views.CreateArchiveDialog(paths, defaultDir)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        if (dlg.ShowDialog() == true)
+        {
+            _ = RunQuickCompressAsync(paths, dlg.ResultArchivePath, dlg.SelectedFormat, dlg.SelectedCompression);
+        }
+    }
+
+    private async Task RunQuickExtractAsync(string archivePath, string destFolder, bool createSubfolder)
+    {
+        try
+        {
+            var count = await Eigen.Services.ArchiveService.ExtractAsync(archivePath, destFolder, createSubfolder);
+            if (ViewModel is { IsHome: false } pane)
+            {
+                ExplorerPaneViewModel.InvalidateFolderCache(pane.CurrentPath);
+                await pane.RefreshAsync();
+            }
+            HostViewModel?.ShowToast($"Eigen Archiver: Extracted {count:N0} file(s)");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this), $"Extraction failed:\n{ex.Message}", "Eigen Archiver", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task RunQuickCompressAsync(
+        IReadOnlyList<string> paths,
+        string destinationArchivePath,
+        Eigen.Services.ArchiveCreateFormat format,
+        Eigen.Services.ArchiveCompressionPreset preset)
+    {
+        try
+        {
+            var count = await Eigen.Services.ArchiveService.CreateArchiveAsync(paths, destinationArchivePath, format, preset);
+            if (ViewModel is { IsHome: false } pane)
+            {
+                ExplorerPaneViewModel.InvalidateFolderCache(pane.CurrentPath);
+                await pane.RefreshAsync();
+            }
+            HostViewModel?.ShowToast($"Eigen Archiver: Packed {count:N0} file(s) into {Path.GetFileName(destinationArchivePath)}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this), $"Compression failed:\n{ex.Message}", "Eigen Archiver", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private void OnBackgroundContextMenuOpened(object sender, RoutedEventArgs e)
     {
         if (sender is not ContextMenu menu) return;
@@ -1151,7 +1358,8 @@ public partial class ExplorerPaneView : UserControl
             OnShellVerbInvoked,
             HostViewModel?.UiFontWeight,
             menuFontSize,
-            HostViewModel?.LetterSpacing ?? 0.0);
+            HostViewModel?.LetterSpacing ?? 0.0,
+            menu => InjectEigenArchiverMenu(menu, paths, clickedItem));
 
         if (shown)
         {

@@ -4,6 +4,75 @@
              xmlns:models="clr-namespace:Eigen.Models"
              xmlns:vm="clr-namespace:Eigen.ViewModels"
              Background="{DynamicResource BgSidebarBrush}">
+    <UserControl.Resources>
+        <Style x:Key="SectionExpanderStyle" TargetType="Expander">
+            <Setter Property="IsExpanded" Value="False" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <StackPanel>
+                            <ToggleButton x:Name="HeaderSite"
+                                          Content="{TemplateBinding Header}"
+                                          IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Cursor="Hand"
+                                          OverridesDefaultStyle="True"
+                                          Margin="0,0,0,4">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="HeaderBd"
+                                                Background="Transparent"
+                                                CornerRadius="5"
+                                                Padding="0,5">
+                                            <Grid>
+                                                <ContentPresenter VerticalAlignment="Center"
+                                                                  HorizontalAlignment="Left"
+                                                                  TextElement.FontSize="10.5"
+                                                                  TextElement.FontWeight="SemiBold"
+                                                                  TextElement.Foreground="{DynamicResource TextMutedBrush}" />
+                                                <TextBlock x:Name="Chevron"
+                                                           FontFamily="{StaticResource IconFont}"
+                                                           Text="&#xE76C;"
+                                                           FontSize="10"
+                                                           Foreground="{DynamicResource TextMutedBrush}"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"
+                                                           RenderTransformOrigin="0.5,0.5">
+                                                    <TextBlock.RenderTransform>
+                                                        <RotateTransform Angle="0" />
+                                                    </TextBlock.RenderTransform>
+                                                </TextBlock>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="HeaderBd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Chevron" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="90" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ExpandSite"
+                                              Visibility="Collapsed"
+                                              Margin="0,2,0,6" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1,0,0,0">
         <Grid>
             <Grid.RowDefinitions>
@@ -59,14 +128,11 @@
                             BorderThickness="0,0,0,1"
                             Padding="14,12">
                         <StackPanel>
-                            <TextBlock Text="VERTICAL GAPS"
-                                       FontSize="10.5"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextMutedBrush}"
-                                       Margin="0,0,0,8" />
+                            <Expander Style="{StaticResource SectionExpanderStyle}" Header="VERTICAL GAPS">
+                                <StackPanel>
 
                             <!-- Details Rows Gap -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Details Rows" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding DetailsVerticalGap, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -81,7 +147,7 @@
                                     Margin="0,0,0,7" />
 
                             <!-- Tiles Grid Gap -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Tiles Grid" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding TilesVerticalGap, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -96,7 +162,7 @@
                                     Margin="0,0,0,7" />
 
                             <!-- Compact List Gap -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Compact List" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding CompactVerticalGap, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -111,7 +177,7 @@
                                     Margin="0,0,0,7" />
 
                             <!-- Sidebar Nav Gap -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Sidebar Nav" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding SidebarVerticalGap, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -126,7 +192,7 @@
                                     Margin="0,0,0,7" />
 
                             <!-- Home Cards Gap -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Home Cards" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding HomeVerticalGap, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -138,16 +204,15 @@
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding HomeVerticalGap, Mode=TwoWay}"
                                     ToolTip="Vertical spacing between Home dashboard sections and cards (0–48 px)"
-                                    Margin="0,0,0,10" />
+                                    Margin="0,0,0,2" />
+                                </StackPanel>
+                            </Expander>
 
-                            <TextBlock Text="ICON &amp; FONT SIZING"
-                                       FontSize="10.5"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextMutedBrush}"
-                                       Margin="0,2,0,8" />
+                            <Expander Style="{StaticResource SectionExpanderStyle}" Header="ICON SIZING &amp; SPACING">
+                                <StackPanel>
 
                             <!-- Icon Size -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Icon Size" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding ItemIconSize, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -158,24 +223,26 @@
                                     TickFrequency="1"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding ItemIconSize, Mode=TwoWay}"
-                                    Margin="0,0,0,10" />
+                                    ToolTip="Icon size in Details and Compact views (10–64 px)"
+                                    Margin="0,0,0,7" />
 
-                            <!-- Font Size -->
-                            <Grid Margin="0,0,0,2">
-                                <TextBlock Text="Font Size" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <!-- Thumbnail Icon Size -->
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Thumbnail Icon Size" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
-                                    <Run Text="{Binding ItemFontSize, StringFormat={}{0:0.#}}" /><Run Text=" px" />
+                                    <Run Text="{Binding TileIconSize, StringFormat={}{0:0}}" /><Run Text=" px" />
                                 </TextBlock>
                             </Grid>
-                            <Slider Minimum="{x:Static vm:MainViewModel.MinFontSize}"
-                                    Maximum="{x:Static vm:MainViewModel.MaxFontSize}"
-                                    TickFrequency="0.5"
+                            <Slider Minimum="{x:Static vm:MainViewModel.MinTileIconSize}"
+                                    Maximum="{x:Static vm:MainViewModel.MaxTileIconSize}"
+                                    TickFrequency="1"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding ItemFontSize, Mode=TwoWay}"
+                                    Value="{Binding TileIconSize, Mode=TwoWay}"
+                                    ToolTip="Thumbnail and icon size in Tiles view (32–160 px)"
                                     Margin="0,0,0,7" />
 
                             <!-- Icon Left Gap -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Icon Left Padding" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding IconLeftGap, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -190,7 +257,7 @@
                                     Margin="0,0,0,7" />
 
                             <!-- Icon-Text Horizontal Gap -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Icon–Text Gap (H)" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding IconTextHorizontalGap, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -205,7 +272,7 @@
                                     Margin="0,0,0,7" />
 
                             <!-- Icon-Text Vertical Gap -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Icon–Text Gap (V)" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
                                     <Run Text="{Binding IconTextVerticalGap, StringFormat={}{0:0}}" /><Run Text=" px" />
@@ -217,14 +284,13 @@
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding IconTextVerticalGap, Mode=TwoWay}"
                                     ToolTip="Vertical gap between icon and name in Tiles view (0–36 px)"
-                                    Margin="0,0,0,10" />
+                                    Margin="0,0,0,2" />
+                                </StackPanel>
+                            </Expander>
 
                             <!-- Typography Section -->
-                            <TextBlock Text="TYPOGRAPHY"
-                                       FontSize="10.5"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextMutedBrush}"
-                                       Margin="0,2,0,8" />
+                            <Expander Style="{StaticResource SectionExpanderStyle}" Header="TYPOGRAPHY">
+                                <StackPanel>
 
                             <!-- Font Family -->
                             <Grid Margin="0,0,0,4">
@@ -239,8 +305,22 @@
                                       IsTextSearchEnabled="True"
                                       Margin="0,0,0,10" />
 
+                            <!-- Font Size -->
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Font Size" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock HorizontalAlignment="Right" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">
+                                    <Run Text="{Binding ItemFontSize, StringFormat={}{0:0.#}}" /><Run Text=" px" />
+                                </TextBlock>
+                            </Grid>
+                            <Slider Minimum="{x:Static vm:MainViewModel.MinFontSize}"
+                                    Maximum="{x:Static vm:MainViewModel.MaxFontSize}"
+                                    TickFrequency="0.5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding ItemFontSize, Mode=TwoWay}"
+                                    Margin="0,0,0,10" />
+
                             <!-- Font Weight (Constrained 300 - 600) -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Font Weight" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock Text="{Binding FontWeightLabel}"
                                            HorizontalAlignment="Right"
@@ -256,7 +336,7 @@
                                     Margin="0,0,0,10" />
 
                             <!-- Letter Spacing (Constrained -0.5 to +3.0 px) -->
-                            <Grid Margin="0,0,0,2">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock Text="Letter Spacing" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock Text="{Binding LetterSpacingLabel}"
                                            HorizontalAlignment="Right"
@@ -269,72 +349,129 @@
                                     TickFrequency="0.25"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding LetterSpacing, Mode=TwoWay}"
+                                    Margin="0,0,0,2" />
+                                </StackPanel>
+                            </Expander>
+
+                            <!-- Transparency Section -->
+                            <Expander Style="{StaticResource SectionExpanderStyle}" Header="TRANSPARENCY">
+                                <StackPanel>
+
+                            <!-- Icon Transparency -->
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Icon Transparency" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="{Binding IconTransparencyPercentText}"
+                                           HorizontalAlignment="Right"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AccentBrush}" />
+                            </Grid>
+                            <Slider Minimum="{x:Static vm:MainViewModel.MinTransparency}"
+                                    Maximum="{x:Static vm:MainViewModel.MaxTransparency}"
+                                    TickFrequency="0.01"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding IconTransparency, Mode=TwoWay}"
+                                    ToolTip="Adjust transparency of file, folder, and sidebar icons (0–90%)"
                                     Margin="0,0,0,10" />
 
-                            <!-- Icon Pack Override -->
-                            <TextBlock Text="ICON PACK"
-                                       FontSize="10.5"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextMutedBrush}"
-                                       Margin="0,2,0,6" />
-                            <ItemsControl ItemsSource="{Binding AvailableIconPacks}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Height="22"
-                                                Margin="0,0,5,5"
-                                                Padding="8,0"
-                                                Cursor="Hand"
-                                                Command="{Binding DataContext.SelectIconPackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}">
-                                            <Button.Style>
-                                                <Style TargetType="Button">
-                                                    <Setter Property="Background" Value="{DynamicResource BgContentBrush}" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
-                                                    <Setter Property="BorderThickness" Value="1" />
-                                                    <Setter Property="Template">
-                                                        <Setter.Value>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border x:Name="Bd"
-                                                                        Background="{TemplateBinding Background}"
-                                                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                                                        CornerRadius="{DynamicResource ControlCornerRadius}"
-                                                                        Padding="{TemplateBinding Padding}">
-                                                                    <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                                                </Border>
-                                                                <ControlTemplate.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
-                                                                    </Trigger>
-                                                                    <DataTrigger Value="True">
-                                                                        <DataTrigger.Binding>
-                                                                            <MultiBinding Converter="{StaticResource ValuesEqualMulti}">
-                                                                                <Binding />
-                                                                                <Binding Path="DataContext.IconPackOverride" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                                            </MultiBinding>
-                                                                        </DataTrigger.Binding>
-                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionBrush}" />
-                                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BgSelectionHoverBrush}" />
-                                                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                                                    </DataTrigger>
-                                                                </ControlTemplate.Triggers>
-                                                            </ControlTemplate>
-                                                        </Setter.Value>
-                                                    </Setter>
-                                                </Style>
-                                            </Button.Style>
-                                            <TextBlock Text="{Binding}" FontSize="10.5" />
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <!-- Text Transparency -->
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Text Transparency" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="{Binding TextTransparencyPercentText}"
+                                           HorizontalAlignment="Right"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AccentBrush}" />
+                            </Grid>
+                            <Slider Minimum="{x:Static vm:MainViewModel.MinTransparency}"
+                                    Maximum="{x:Static vm:MainViewModel.MaxTransparency}"
+                                    TickFrequency="0.01"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding TextTransparency, Mode=TwoWay}"
+                                    ToolTip="Adjust transparency of file, folder, and sidebar labels (0–90%)"
+                                    Margin="0,0,0,2" />
+                                </StackPanel>
+                            </Expander>
+
+                            <!-- Icon Pack Override (2-Column Visual Preview Cards) -->
+                            <Expander Style="{StaticResource SectionExpanderStyle}" Header="ICON PACK" Margin="0">
+                                <ItemsControl ItemsSource="{Binding IconPackOptions}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="2" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type models:IconPackOption}">
+                                            <Button Margin="0,0,6,6"
+                                                    Padding="8,7"
+                                                    Cursor="Hand"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    Command="{Binding DataContext.SelectIconPackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Style}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="{DynamicResource BgContentBrush}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+                                                        <Setter Property="BorderThickness" Value="1" />
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="Button">
+                                                                    <Border x:Name="Bd"
+                                                                            Background="{TemplateBinding Background}"
+                                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                                            CornerRadius="{DynamicResource ControlCornerRadius}"
+                                                                            Padding="{TemplateBinding Padding}">
+                                                                        <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                                                        </Trigger>
+                                                                        <DataTrigger Value="True">
+                                                                            <DataTrigger.Binding>
+                                                                                <MultiBinding Converter="{StaticResource ValuesEqualMulti}">
+                                                                                    <Binding Path="Style" />
+                                                                                    <Binding Path="DataContext.IconPackOverride" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                                                </MultiBinding>
+                                                                            </DataTrigger.Binding>
+                                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelectionBrush}" />
+                                                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                        </DataTrigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </Button.Style>
+                                                <StackPanel>
+                                                    <Border Background="{DynamicResource BgInputBrush}"
+                                                            CornerRadius="5"
+                                                            Padding="6,5"
+                                                            Margin="0,0,0,5">
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                            <Image Source="{Binding FolderPreview}" Width="18" Height="18"
+                                                                   RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,6,0" />
+                                                            <Image Source="{Binding CodePreview}" Width="18" Height="18"
+                                                                   RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,6,0" />
+                                                            <Image Source="{Binding ImagePreview}" Width="18" Height="18"
+                                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               FontSize="11"
+                                                               HorizontalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Expander>
                         </StackPanel>
                     </Border>
 

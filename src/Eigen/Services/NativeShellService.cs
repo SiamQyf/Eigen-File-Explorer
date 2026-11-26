@@ -30,7 +30,22 @@ public static class NativeShellService
 
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
+    private const int DWMSBT_NONE = 1;
+    private const int DWMSBT_TRANSIENTWINDOW = 3; // Windows 11 Acrylic
     private const int DWMWCP_ROUND = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MARGINS
+    {
+        public int cxLeftWidth;
+        public int cxRightWidth;
+        public int cyTopHeight;
+        public int cyBottomHeight;
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
 
     private static readonly Guid DownloadsFolderGuid = new("374DE290-123F-4565-9164-39C4925E467B");
 
@@ -40,6 +55,10 @@ public static class NativeShellService
     private static readonly ConcurrentDictionary<string, string?> AssociatedAppCache =
         new(StringComparer.OrdinalIgnoreCase);
 
+    private static readonly ConcurrentDictionary<string, bool> ThirdPartyArchiverCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private const uint ASSOCSTR_EXECUTABLE = 2;
     private const uint ASSOCSTR_FRIENDLYAPPNAME = 4;
 
     [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
@@ -328,6 +347,42 @@ public static class NativeShellService
         return resolved;
     }
 
+    public static bool HasThirdPartyArchiverAssociation(string? extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension) || !extension.StartsWith('.'))
+            return false;
+
+        if (ThirdPartyArchiverCache.TryGetValue(extension, out var cached))
+            return cached;
+
+        var hasThirdParty = false;
+        try
+        {
+            var sb = new System.Text.StringBuilder(260);
+            uint len = (uint)sb.Capacity;
+            var hr = AssocQueryStringW(0, ASSOCSTR_EXECUTABLE, extension, null, sb, ref len);
+            if (hr == 0 && sb.Length > 0)
+            {
+                var exeName = Path.GetFileName(sb.ToString().Trim());
+                if (!string.IsNullOrWhiteSpace(exeName) &&
+                    !exeName.Equals("explorer.exe", StringComparison.OrdinalIgnoreCase) &&
+                    !exeName.Equals("OpenWith.exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasThirdParty = true;
+                }
+            }
+        }
+        catch
+        {
+            hasThirdParty = false;
+        }
+
+        if (ThirdPartyArchiverCache.Count < 1024)
+            ThirdPartyArchiverCache.TryAdd(extension, hasThirdParty);
+
+        return hasThirdParty;
+    }
+
     public static string GetKnownDownloadsPath()
     {
         try
@@ -500,7 +555,7 @@ public static class NativeShellService
         }
     }
 
-    public static void ApplyWindowTheme(Window window, bool isDark)
+    public static void ApplyWindowTheme(Window window, bool isDark, bool isTranslucent = false)
     {
         var hwnd = new WindowInteropHelper(window).Handle;
         if (hwnd == IntPtr.Zero) return;
@@ -510,6 +565,21 @@ public static class NativeShellService
 
         var cornerPref = DWMWCP_ROUND;
         _ = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPref, sizeof(int));
+
+        var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(window);
+        if (HwndSource.FromHwnd(hwnd)?.CompositionTarget is { } target)
+            target.BackgroundColor = isTranslucent ? Colors.Transparent : Colors.Black;
+
+        var margins = isTranslucent
+            ? new MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 }
+            : default;
+        _ = DwmExtendFrameIntoClientArea(hwnd, ref margins);
+
+        if (chrome is not null)
+            chrome.GlassFrameThickness = isTranslucent ? new Thickness(-1) : new Thickness(0);
+
+        var backdrop = isTranslucent ? DWMSBT_TRANSIENTWINDOW : DWMSBT_NONE;
+        _ = DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref backdrop, sizeof(int));
     }
 
     private const int DWMWA_TRANSITIONS_FORCEDISABLED = 3;
@@ -1184,7 +1254,8 @@ public static class NativeShellService
         Action<string>? onShellVerbInvoked = null,
         FontWeight? uiFontWeight = null,
         double? fontSize = null,
-        double letterSpacing = 0.0)
+        double letterSpacing = 0.0,
+        Action<System.Windows.Controls.ContextMenu>? customizeMenu = null)
     {
         if (placementTarget is null || paths.Count == 0) return false;
         var owner = Window.GetWindow(placementTarget);
@@ -1315,6 +1386,8 @@ public static class NativeShellService
                 resolvedFontSize,
                 letterSpacing,
                 InvokeCmd);
+
+            customizeMenu?.Invoke(wpfMenu);
 
             if (wpfMenu.Items.Count == 0)
             {

@@ -124,6 +124,13 @@
                     <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xF57C;" FontSize="12" />
                 </MenuItem.Icon>
             </MenuItem>
+            <MenuItem Header="Eigen Archiver" Click="OnContextOpenArchiverClick">
+                <MenuItem.Icon>
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xF012;" FontSize="12" Foreground="{DynamicResource AccentBrush}" />
+                </MenuItem.Icon>
+                <MenuItem Header="Add to archive..." Click="OnContextArchiverCompressClick" />
+                <MenuItem Header="Extract Here" Click="OnContextArchiverExtractHereClick" />
+            </MenuItem>
             <Separator />
             <MenuItem Header="Cut" InputGestureText="Ctrl+X" Click="OnContextCutClick">
                 <MenuItem.Icon>
@@ -530,8 +537,9 @@
                                             <Image Grid.Column="0"
                                                    Source="{Binding Icon}"
                                                    Width="32" Height="32"
-                                                   VerticalAlignment="Top" />
-                                            <StackPanel Grid.Column="1">
+                                                   VerticalAlignment="Top"
+                                                   Opacity="{Binding DataContext.IconOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}" />
+                                            <StackPanel Grid.Column="1" Opacity="{Binding DataContext.TextOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}">
                                                 <Grid>
                                                     <TextBlock Text="{Binding Name}"
                                                                FontSize="13"
@@ -596,8 +604,9 @@
                                                 <ColumnDefinition Width="32" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
-                                            <Image Grid.Column="0" Source="{Binding Icon}" Width="24" Height="24" VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="1">
+                                            <Image Grid.Column="0" Source="{Binding Icon}" Width="24" Height="24" VerticalAlignment="Center"
+                                                   Opacity="{Binding DataContext.IconOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}" />
+                                            <StackPanel Grid.Column="1" Opacity="{Binding DataContext.TextOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}">
                                                 <TextBlock Text="{Binding Title}"
                                                            FontSize="13"
                                                            FontWeight="SemiBold"
@@ -687,19 +696,21 @@
                                                     <ColumnDefinition Width="{Binding Tag.DetailsIconColumnWidth, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=26}" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <Image Grid.Column="0"
-                                                       Source="{Binding EffectiveListIcon}"
-                                                       Width="{Binding Tag.ItemIconSize, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=18}"
-                                                       Height="{Binding Tag.ItemIconSize, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=18}"
-                                                       RenderOptions.BitmapScalingMode="HighQuality"
-                                                       Opacity="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}"
-                                                       HorizontalAlignment="Left"
-                                                       VerticalAlignment="Center" />
+                                                <Grid Grid.Column="0" Opacity="{Binding Tag.IconOpacity, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=1}">
+                                                    <Image Source="{Binding EffectiveListIcon}"
+                                                           Width="{Binding Tag.ItemIconSize, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=18}"
+                                                           Height="{Binding Tag.ItemIconSize, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=18}"
+                                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                                           Opacity="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}"
+                                                           HorizontalAlignment="Left"
+                                                           VerticalAlignment="Center" />
+                                                </Grid>
                                                 <controls:SpacedTextBlock Grid.Column="1"
                                                                           Text="{Binding Name}"
                                                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                                                           FontSize="{Binding Tag.ItemFontSize, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=14}"
                                                                           LetterSpacing="{Binding Tag.LetterSpacing, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=0}"
+                                                                          Opacity="{Binding Tag.TextOpacity, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=1}"
                                                                           TextTrimming="CharacterEllipsis"
                                                                           VerticalAlignment="Center"
                                                                           Visibility="{Binding IsEditing, Converter={StaticResource InvBoolToVis}}" />
@@ -730,6 +741,7 @@
                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                                       FontSize="{Binding Tag.SecondaryFontSize, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=12}"
                                                                       LetterSpacing="{Binding Tag.LetterSpacing, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=0}"
+                                                                      Opacity="{Binding Tag.TextOpacity, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=1}"
                                                                       VerticalAlignment="Center" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
@@ -743,6 +755,7 @@
                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                                       FontSize="{Binding Tag.SecondaryFontSize, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=12}"
                                                                       LetterSpacing="{Binding Tag.LetterSpacing, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=0}"
+                                                                      Opacity="{Binding Tag.TextOpacity, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=1}"
                                                                       TextTrimming="CharacterEllipsis"
                                                                       VerticalAlignment="Center" />
                                         </DataTemplate>
@@ -757,6 +770,7 @@
                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                                       FontSize="{Binding Tag.SecondaryFontSize, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=12}"
                                                                       LetterSpacing="{Binding Tag.LetterSpacing, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=0}"
+                                                                      Opacity="{Binding Tag.TextOpacity, RelativeSource={RelativeSource AncestorType=ListView}, FallbackValue=1}"
                                                                       TextAlignment="Left"
                                                                       VerticalAlignment="Center" />
                                         </DataTemplate>
@@ -807,21 +821,23 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <Image Grid.Row="0"
-                                           Source="{Binding TilePreviewImage}"
-                                           Width="{Binding DataContext.TileIconSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=56}"
-                                           Height="{Binding DataContext.TileIconSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=56}"
-                                           Margin="{Binding DataContext.TileIconMargin, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='0,4,0,6'}"
-                                           Stretch="Uniform"
-                                           RenderOptions.BitmapScalingMode="HighQuality"
-                                           Opacity="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center" />
+                                    <Grid Grid.Row="0" Opacity="{Binding DataContext.IconOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}">
+                                        <Image Source="{Binding TilePreviewImage}"
+                                               Width="{Binding DataContext.TileIconSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=56}"
+                                               Height="{Binding DataContext.TileIconSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=56}"
+                                               Margin="{Binding DataContext.TileIconMargin, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='0,4,0,6'}"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality"
+                                               Opacity="{Binding IsHidden, Converter={StaticResource HiddenOpacity}}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                    </Grid>
                                     <controls:SpacedTextBlock Grid.Row="1"
                                                               Text="{Binding Name}"
                                                               Foreground="{DynamicResource TextPrimaryBrush}"
                                                               FontSize="{Binding DataContext.ItemFontSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=12}"
                                                               LetterSpacing="{Binding DataContext.LetterSpacing, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=0}"
+                                                              Opacity="{Binding DataContext.TextOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}"
                                                               TextAlignment="Center"
                                                               TextWrapping="Wrap"
                                                               MaxLines="2"
@@ -841,6 +857,7 @@
                                                               Foreground="{DynamicResource TextMutedBrush}"
                                                               FontSize="{Binding DataContext.SecondaryFontSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=10.5}"
                                                               LetterSpacing="{Binding DataContext.LetterSpacing, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=0}"
+                                                              Opacity="{Binding DataContext.TextOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}"
                                                               TextAlignment="Center"
                                                               Margin="0,2,0,0" />
                                 </Grid>
@@ -894,6 +911,7 @@
                                            Width="{Binding DataContext.ItemIconSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=18}"
                                            Height="{Binding DataContext.ItemIconSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=18}"
                                            RenderOptions.BitmapScalingMode="HighQuality"
+                                           Opacity="{Binding DataContext.IconOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}"
                                            HorizontalAlignment="Left"
                                            VerticalAlignment="Center" />
                                     <controls:SpacedTextBlock Grid.Column="1"
@@ -901,6 +919,7 @@
                                                               Foreground="{DynamicResource TextPrimaryBrush}"
                                                               FontSize="{Binding DataContext.ItemFontSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=12}"
                                                               LetterSpacing="{Binding DataContext.LetterSpacing, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=0}"
+                                                              Opacity="{Binding DataContext.TextOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}"
                                                               TextTrimming="CharacterEllipsis"
                                                               VerticalAlignment="Center"
                                                               Visibility="{Binding IsEditing, Converter={StaticResource InvBoolToVis}}" />
@@ -976,12 +995,39 @@
                             </TextBlock>
                         </Border>
                     </StackPanel>
-                    <TextBlock Text="Loading..."
-                               FontSize="11.5"
-                               Foreground="{DynamicResource AccentBrush}"
-                               HorizontalAlignment="Right"
-                               VerticalAlignment="Center"
-                               Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="Loading..."
+                                   FontSize="11.5"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,14,0"
+                                   Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
+                        <Button Style="{StaticResource IconButtonStyle}"
+                                Width="22" Height="22"
+                                FontSize="11.5"
+                                Content="&#xE706;"
+                                ToolTip="Brightness (click to reset to 100%)"
+                                Command="{Binding DataContext.ResetBrightnessCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        <Slider Width="92"
+                                Margin="4,0,6,0"
+                                VerticalAlignment="Center"
+                                Minimum="0.40"
+                                Maximum="1.00"
+                                SmallChange="0.05"
+                                LargeChange="0.10"
+                                IsMoveToPointEnabled="True"
+                                ToolTip="Window Brightness"
+                                Value="{Binding DataContext.WindowBrightness, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}" />
+                        <TextBlock Text="{Binding DataContext.WindowBrightnessPercentText, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='100%'}"
+                                   FontSize="11"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   MinWidth="34"
+                                   TextAlignment="Right"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>

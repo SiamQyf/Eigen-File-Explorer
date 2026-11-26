@@ -19,6 +19,7 @@ public static class ThemeCatalogService
         "Nature",
         "Editorial",
         "Glass",
+        "Translucent",
         "Cyber",
         "Pixel",
         "Brutal",
@@ -168,7 +169,8 @@ public static class ThemeCatalogService
         double controlCorner = 6.0,
         double cardCorner = 10.0,
         double borderThickness = 1.0,
-        string? headerGradientEnd = null)
+        string? headerGradientEnd = null,
+        bool isTranslucent = false)
     {
         var cWin = Parse(bgWindow);
         var cSide = Parse(bgSidebar);
@@ -214,7 +216,8 @@ public static class ThemeCatalogService
                 ControlCornerRadius = controlCorner,
                 CardCornerRadius = cardCorner,
                 SurfaceBorderThickness = borderThickness,
-                HeaderGradientEnd = headerGradientEnd
+                HeaderGradientEnd = headerGradientEnd,
+                IsTranslucent = isTranslucent
             };
         }
 
@@ -253,7 +256,8 @@ public static class ThemeCatalogService
             ControlCornerRadius = controlCorner,
             CardCornerRadius = cardCorner,
             SurfaceBorderThickness = borderThickness,
-            HeaderGradientEnd = headerGradientEnd
+            HeaderGradientEnd = headerGradientEnd,
+            IsTranslucent = isTranslucent
         };
     }
 
@@ -261,6 +265,12 @@ public static class ThemeCatalogService
     [
         // === DEFAULT (1) ===
         MakeSkin("default", "Default", "Editorial", "Catppuccin Latte · Default", false, "#E6E9EF", "#DCE0E8", "#EFF1F5", "#FFFFFF", "#1E66F5", "#363A4F", "#5C5F77", IconPackStyle.NeonWire),
+
+        // === TRANSLUCENT (4) — Windows 11 Acrylic frosted glass skins ===
+        MakeSkin("acrylic-obsidian", "Acrylic Obsidian", "Translucent", "Dark Frosted Glass", true, "#720E1218", "#8A131822", "#9E161C28", "#EE1E2636", "#5AC8FA", "#F2F6FC", "#A8B5C9", IconPackStyle.GlassFrost, "Segoe UI Variable Text, Segoe UI", 8, 12, 1, null, isTranslucent: true),
+        MakeSkin("acrylic-frost", "Acrylic Frost", "Translucent", "Light Frosted Glass", false, "#88EEF3FA", "#9CE6ECF6", "#B4F5F8FD", "#F4FFFFFF", "#0067C0", "#161B26", "#4B5568", IconPackStyle.GlassFrost, "Segoe UI Variable Text, Segoe UI", 8, 12, 1, null, isTranslucent: true),
+        MakeSkin("smoked-amethyst", "Smoked Amethyst", "Translucent", "Velvet Violet Acrylic", true, "#74130E1D", "#8C1A1328", "#A01E172E", "#EE281F3D", "#C084FC", "#F5F0FF", "#B5A8CF", IconPackStyle.GlassFrost, "Segoe UI Variable Text, Segoe UI", 8, 12, 1, null, isTranslucent: true),
+        MakeSkin("mint-aero", "Mint Aero", "Translucent", "Cool Mist Glass", false, "#88EAF5F2", "#9CE0EFEA", "#B4F3FAF8", "#F4FFFFFF", "#0D8A72", "#142420", "#4A615A", IconPackStyle.GlassFrost, "Segoe UI Variable Text, Segoe UI", 8, 12, 1, null, isTranslucent: true),
 
         // === WARM (10) ===
         MakeSkin("eigen-amber", "Eigen Amber", "Warm", "Espresso & Amber", true, "#161311", "#1D1916", "#231E1B", "#2C2622", "#D87A44", "#F4EDE7", "#B6A89D"),

@@ -66,7 +66,7 @@ public partial class MainWindow : Window
 
         SourceInitialized += (_, _) =>
         {
-            NativeShellService.ApplyWindowTheme(this, _viewModel.ActiveSkin.IsDark);
+            NativeShellService.ApplyWindowTheme(this, _viewModel.ActiveSkin.IsDark, _viewModel.ActiveSkin.IsTranslucent);
             NativeShellService.PrepareSmoothWindowEntrance(this);
         };
 
@@ -160,8 +160,8 @@ public partial class MainWindow : Window
     {
         if (Application.Current is App app)
             app.ApplySkin(skin, _viewModel.EffectiveFontFamilyName);
-        else
-            NativeShellService.ApplyWindowTheme(this, skin.IsDark);
+
+        NativeShellService.ApplyWindowTheme(this, skin.IsDark, skin.IsTranslucent);
 
         if (!string.Equals(_lastTaskbarIconSkinId, skin.Id, StringComparison.OrdinalIgnoreCase))
         {
@@ -409,14 +409,21 @@ public partial class MainWindow : Window
 
     private async void OnSidebarNodeDrop(object sender, DragEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: SidebarNode node } &&
-            !node.IsSpecialHome &&
-            Directory.Exists(node.Path) &&
-            e.Data.GetData(DataFormats.FileDrop) is string[] files)
+        try
         {
-            var isMove = (e.KeyStates & DragDropKeyStates.ControlKey) == 0;
-            await _viewModel.HandleDropAsync(files, node.Path, isMove);
-            e.Handled = true;
+            if (sender is FrameworkElement { DataContext: SidebarNode node } &&
+                !node.IsSpecialHome &&
+                Directory.Exists(node.Path) &&
+                e.Data.GetData(DataFormats.FileDrop) is string[] files)
+            {
+                var isMove = (e.KeyStates & DragDropKeyStates.ControlKey) == 0;
+                await _viewModel.HandleDropAsync(files, node.Path, isMove);
+                e.Handled = true;
+            }
+        }
+        catch
+        {
+            // Ignore unexpected shell drop errors
         }
     }
 
@@ -836,12 +843,28 @@ public partial class MainWindow : Window
         _panScrollViewer = null;
     }
 
+    private void ApplyFloatingPreviewSize()
+    {
+        var targetW = Math.Round(SystemParameters.PrimaryScreenWidth * 0.625);
+        var targetH = Math.Round(SystemParameters.PrimaryScreenHeight * 0.625);
+        if (ActualWidth > 120)
+            targetW = Math.Min(targetW, Math.Max(320, ActualWidth - 32));
+        if (ActualHeight > 120)
+            targetH = Math.Min(targetH, Math.Max(240, ActualHeight - 32));
+
+        FloatingPreviewCard.Width = targetW;
+        FloatingPreviewCard.Height = targetH;
+    }
+
     private void UpdateFloatingPreviewVisual(bool isOpen)
     {
         try
         {
             if (isOpen)
+            {
+                ApplyFloatingPreviewSize();
                 SetFloatingZoom(1.0);
+            }
             FloatingPreviewOverlay.BeginAnimation(OpacityProperty, null);
             FloatingPreviewScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
             FloatingPreviewScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);

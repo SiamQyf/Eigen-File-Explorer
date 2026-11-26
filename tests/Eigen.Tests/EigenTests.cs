@@ -451,11 +451,11 @@ public class EigenTests : IDisposable
     public void ThemeCatalogService_Has100UniqueReadableSkinsWithAesthetics()
     {
         var skins = ThemeCatalogService.Skins;
-        Assert.Equal(101, skins.Count);
+        Assert.Equal(105, skins.Count);
         Assert.Equal("default", skins[0].Id);
         Assert.Equal("Default", skins[0].Name);
-        Assert.Equal(101, skins.Select(s => s.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        Assert.Equal(101, skins.Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(105, skins.Select(s => s.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(105, skins.Select(s => s.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
         foreach (var skin in skins)
         {
@@ -605,7 +605,7 @@ public class EigenTests : IDisposable
         Assert.Equal(MainViewModel.DefaultFontSize, vm.ItemFontSize);
 
         // Skin category filter + aesthetic icon pack switching
-        Assert.Equal(101, vm.FilteredSkins.Count);
+        Assert.Equal(105, vm.FilteredSkins.Count);
         vm.SelectIconPackCommand.Execute(IconPackStyle.Auto);
         vm.SelectSkinCategoryCommand.Execute("Glass");
         Assert.Equal(10, vm.FilteredSkins.Count);
@@ -897,9 +897,9 @@ public class EigenTests : IDisposable
                 Assert.Equal(0.0, previewCol.Width.Value);
 
                 Assert.Equal(System.Windows.Controls.ScrollBarVisibility.Auto, sidebarSv.VerticalScrollBarVisibility);
-                Assert.Equal(System.Windows.Controls.ScrollBarVisibility.Auto, sidebarSv.HorizontalScrollBarVisibility);
+                Assert.Equal(System.Windows.Controls.ScrollBarVisibility.Disabled, sidebarSv.HorizontalScrollBarVisibility);
                 Assert.True(sidebarSv.ScrollableHeight > 0, $"Expected ScrollableHeight > 0, got {sidebarSv.ScrollableHeight}");
-                Assert.True(sidebarSv.ScrollableWidth > 0, $"Expected ScrollableWidth > 0, got {sidebarSv.ScrollableWidth}");
+                Assert.Equal(0.0, sidebarSv.ScrollableWidth);
 
                 // Ensure TreeView template does not trap wheel events inside a hidden inner ScrollViewer
                 static T? FindDescendant<T>(DependencyObject root, Func<T, bool>? predicate = null) where T : DependencyObject
@@ -932,10 +932,10 @@ public class EigenTests : IDisposable
                 Assert.True(wheelArgs.Handled, "MouseWheel over DriveTree must be handled by SidebarScrollViewer");
                 Assert.True(sidebarSv.VerticalOffset > 0, $"MouseWheel over DriveTree must scroll SidebarScrollViewer (VerticalOffset={sidebarSv.VerticalOffset}, ScrollableHeight={sidebarSv.ScrollableHeight})");
 
-                // Horizontal offset also scrolls cleanly when deep tree overflows sidebar width
+                // Horizontal scrolling is disabled on the sidebar
                 sidebarSv.ScrollToHorizontalOffset(40);
                 rootVisual.UpdateLayout();
-                Assert.True(sidebarSv.HorizontalOffset > 0, $"HorizontalOffset expected > 0, got {sidebarSv.HorizontalOffset}");
+                Assert.Equal(0.0, sidebarSv.HorizontalOffset);
 
                 // Clicking anywhere in a TreeViewItem header box (Bd) expands/collapses it and loads children
                 var assetsContainer = (System.Windows.Controls.TreeViewItem)driveTree.ItemContainerGenerator.ContainerFromItem(assetsNode);
@@ -1538,6 +1538,8 @@ public class EigenTests : IDisposable
                 vm.IsFloatingPreviewOpen = true;
                 Assert.True(vm.IsFloatingPreviewOpen);
                 Assert.Equal(Visibility.Visible, overlay.Visibility);
+                Assert.Equal(Math.Round(SystemParameters.PrimaryScreenWidth * 0.625), card.Width);
+                Assert.Equal(Math.Round(SystemParameters.PrimaryScreenHeight * 0.625), card.Height);
 
                 // Verify cross button closes floating preview
                 closeBtn.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
@@ -1590,6 +1592,195 @@ public class EigenTests : IDisposable
             Assert.NotNull(videoIcon);
             Assert.True(folderIcon.IsFrozen);
         }
+    }
+
+    [Fact]
+    public async Task ArchiveService_CreatesListsTestsExtractsAndInjectsMenu()
+    {
+        Assert.True(ArchiveService.IsArchivePath(@"C:\test\bundle.zip"));
+        Assert.True(ArchiveService.IsArchivePath(@"C:\test\bundle.rar"));
+        Assert.True(ArchiveService.IsArchivePath(@"C:\test\bundle.7z"));
+        Assert.True(ArchiveService.IsArchivePath(@"C:\test\bundle.tar.gz"));
+        Assert.False(ArchiveService.IsArchivePath(@"C:\test\readme.txt"));
+
+        var srcDir = Directory.CreateDirectory(Path.Combine(_tempRoot, "PackSrc")).FullName;
+        var nestedDir = Directory.CreateDirectory(Path.Combine(srcDir, "sub")).FullName;
+        var fileA = Path.Combine(srcDir, "alpha.txt");
+        var fileB = Path.Combine(nestedDir, "beta.txt");
+        await File.WriteAllTextAsync(fileA, "Alpha payload");
+        await File.WriteAllTextAsync(fileB, "Beta payload");
+
+        // 1. Create ZIP and TAR.GZ
+        var zipPath = Path.Combine(_tempRoot, "out.zip");
+        var packedZip = await ArchiveService.CreateArchiveAsync([srcDir], zipPath, ArchiveCreateFormat.Zip, ArchiveCompressionPreset.Normal);
+        Assert.Equal(2, packedZip);
+        Assert.True(File.Exists(zipPath));
+
+        var tgzPath = Path.Combine(_tempRoot, "out.tar.gz");
+        var packedTgz = await ArchiveService.CreateArchiveAsync([srcDir], tgzPath, ArchiveCreateFormat.TarGz, ArchiveCompressionPreset.Normal);
+        Assert.Equal(2, packedTgz);
+        Assert.True(File.Exists(tgzPath));
+
+        // 2. List & Test archive integrity
+        var entries = ArchiveService.ListEntries(zipPath);
+        Assert.Contains(entries, e => !e.IsDirectory && e.Name == "alpha.txt");
+        Assert.Contains(entries, e => !e.IsDirectory && e.Name == "beta.txt");
+
+        var (testedCount, testedBytes) = await ArchiveService.TestArchiveAsync(zipPath);
+        Assert.Equal(2, testedCount);
+        Assert.True(testedBytes > 0);
+
+        // 3. Extract to subfolder
+        var extractRoot = Directory.CreateDirectory(Path.Combine(_tempRoot, "Extracted")).FullName;
+        var extracted = await ArchiveService.ExtractAsync(zipPath, extractRoot, createSubfolder: true);
+        Assert.Equal(2, extracted);
+        Assert.Equal("Beta payload", await File.ReadAllTextAsync(Path.Combine(extractRoot, "out", "PackSrc", "sub", "beta.txt")));
+
+        // 4. Add extra file to ZIP
+        var extraFile = Path.Combine(_tempRoot, "gamma.txt");
+        await File.WriteAllTextAsync(extraFile, "Gamma payload");
+        var added = await ArchiveService.AddFilesToZipAsync(zipPath, [extraFile]);
+        Assert.Equal(1, added);
+        Assert.Contains(ArchiveService.ListEntries(zipPath), e => !e.IsDirectory && e.Name == "gamma.txt");
+
+        // 4b. Verify Eigen Archiver fallback icon & third-party archiver association check
+        var archiverIcon = VectorIconPackService.GetEigenArchiverIcon(ThemeCatalogService.GetById("default"));
+        Assert.NotNull(archiverIcon);
+        Assert.True(archiverIcon.IsFrozen);
+        Assert.False(NativeShellService.HasThirdPartyArchiverAssociation(null));
+        Assert.False(NativeShellService.HasThirdPartyArchiverAssociation(".definitely_unassociated_ext_999"));
+
+        // 5. Verify right-click menu injection in STA
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var paneView = new Eigen.Controls.ExplorerPaneView();
+                var menu = new System.Windows.Controls.ContextMenu();
+                var rarItem = new FileSystemItem { Name = "archive.rar", FullPath = Path.Combine(_tempRoot, "archive.rar") };
+                paneView.InjectEigenArchiverMenu(menu, [rarItem.FullPath], rarItem);
+
+                var archiverMenu = menu.Items.OfType<System.Windows.Controls.MenuItem>()
+                    .FirstOrDefault(m => string.Equals(m.Header?.ToString(), "Eigen Archiver", StringComparison.Ordinal));
+                Assert.NotNull(archiverMenu);
+                var subHeaders = archiverMenu!.Items.OfType<System.Windows.Controls.MenuItem>()
+                    .Select(m => m.Header?.ToString())
+                    .ToList();
+                Assert.Contains("Open in Eigen Archiver", subHeaders);
+                Assert.Contains("Extract Here", subHeaders);
+                Assert.Contains("Extract to \"archive\\\"", subHeaders);
+                Assert.Contains("Add to archive...", subHeaders);
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (threadEx is not null)
+            throw new Exception("Eigen Archiver menu STA test failed", threadEx);
+    }
+
+    [Fact]
+    public void MainViewModel_WindowBrightness_ClampsAndPersists()
+    {
+        var settingsPath = Path.Combine(_tempRoot, "brightness-settings.json");
+        using (var vm1 = new MainViewModel(_tempRoot, settingsPath))
+        {
+            Assert.Equal(1.0, vm1.WindowBrightness);
+            Assert.Equal(0.0, vm1.BrightnessOverlayOpacity);
+            Assert.Equal("100%", vm1.WindowBrightnessPercentText);
+
+            vm1.WindowBrightness = 0.1; // Clamps to 0.40
+            Assert.Equal(0.40, vm1.WindowBrightness);
+            Assert.Equal("40%", vm1.WindowBrightnessPercentText);
+            Assert.True(vm1.BrightnessOverlayOpacity > 0.4);
+
+            vm1.WindowBrightness = 0.75;
+            Assert.Equal("75%", vm1.WindowBrightnessPercentText);
+        }
+
+        using var vm2 = new MainViewModel(_tempRoot, settingsPath);
+        Assert.Equal(0.75, vm2.WindowBrightness);
+        vm2.ResetBrightnessCommand.Execute(null);
+        Assert.Equal(1.0, vm2.WindowBrightness);
+        Assert.Equal(0.0, vm2.BrightnessOverlayOpacity);
+    }
+
+    [Fact]
+    public async Task MainViewModel_AllCustomizations_PersistToDiskImmediately()
+    {
+        var settingsPath = Path.Combine(_tempRoot, "custom-persist.json");
+        using var vm1 = new MainViewModel(_tempRoot, settingsPath);
+        vm1.ActiveSkin = ThemeCatalogService.GetById("cobalt-concrete");
+        vm1.IconPackOverride = IconPackStyle.Fluent3D;
+        vm1.DetailsVerticalGap = 7;
+        vm1.IconLeftGap = 14;
+        vm1.ItemIconSize = 22;
+        vm1.TileIconSize = 84;
+        vm1.ItemFontSize = 16;
+        vm1.FontWeightValue = 600;
+        vm1.LetterSpacing = 0.5;
+        vm1.IconTransparency = 0.35;
+        vm1.TextTransparency = 0.25;
+        vm1.WindowBrightness = 0.8;
+
+        // Wait past debounce without disposing vm1 to verify live disk persistence
+        await Task.Delay(450);
+
+        using var vm2 = new MainViewModel(_tempRoot, settingsPath);
+        Assert.Equal("cobalt-concrete", vm2.ActiveSkin.Id);
+        Assert.Equal(IconPackStyle.Fluent3D, vm2.IconPackOverride);
+        Assert.Equal(7, vm2.DetailsVerticalGap);
+        Assert.Equal(14, vm2.IconLeftGap);
+        Assert.Equal(22, vm2.ItemIconSize);
+        Assert.Equal(84, vm2.TileIconSize);
+        Assert.Equal(16, vm2.ItemFontSize);
+        Assert.Equal(600, vm2.FontWeightValue);
+        Assert.Equal(0.5, vm2.LetterSpacing);
+        Assert.Equal(0.35, vm2.IconTransparency);
+        Assert.Equal(0.25, vm2.TextTransparency);
+        Assert.Equal(0.65, vm2.IconOpacity, 2);
+        Assert.Equal(0.75, vm2.TextOpacity, 2);
+        Assert.Equal("35%", vm2.IconTransparencyPercentText);
+        Assert.Equal("25%", vm2.TextTransparencyPercentText);
+        Assert.Equal(0.8, vm2.WindowBrightness);
+
+        // Quick Access and This PC icons align on the exact same vertical X line
+        var quickAccessIconLeft = vm2.SidebarItemMargin.Left + vm2.SidebarItemPadding.Left;
+        var treeIconLeft = vm2.SidebarTreeItemMargin.Left + vm2.SidebarTreeItemPadding.Left + 18.0;
+        Assert.Equal(treeIconLeft, quickAccessIconLeft);
+
+        // IconSize and TileIconSize are independent
+        vm2.ItemIconSize = 30;
+        Assert.Equal(84, vm2.TileIconSize);
+        vm2.TileIconSize = 110;
+        Assert.Equal(30, vm2.ItemIconSize);
+
+        vm2.ResetLayoutCustomizationCommand.Execute(null);
+        Assert.Equal(MainViewModel.DefaultIconSize, vm2.ItemIconSize);
+        Assert.Equal(MainViewModel.DefaultTileIconSize, vm2.TileIconSize);
+        Assert.Equal(0.0, vm2.IconTransparency);
+        Assert.Equal(0.0, vm2.TextTransparency);
+        Assert.Equal(1.0, vm2.IconOpacity);
+        Assert.Equal(1.0, vm2.TextOpacity);
+
+        Assert.Equal(vm2.AvailableIconPacks.Count, vm2.IconPackOptions.Count);
+        Assert.All(vm2.IconPackOptions, opt =>
+        {
+            Assert.NotNull(opt.FolderPreview);
+            Assert.NotNull(opt.CodePreview);
+            Assert.NotNull(opt.ImagePreview);
+        });
+        Assert.Contains("Translucent", ThemeCatalogService.Categories);
+        var obsidian = ThemeCatalogService.GetById("acrylic-obsidian");
+        var frost = ThemeCatalogService.GetById("acrylic-frost");
+        Assert.True(obsidian.IsTranslucent);
+        Assert.True(frost.IsTranslucent);
+        Assert.Equal("Translucent • Acrylic", obsidian.AestheticTag);
     }
 
     private sealed class SyncProgress<T>(Action<T> handler) : IProgress<T>

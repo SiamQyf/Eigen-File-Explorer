@@ -571,9 +571,9 @@
                         Visibility="{Binding IsSidebarCollapsed, Converter={StaticResource InvBoolToVis}}">
                     <ScrollViewer x:Name="SidebarScrollViewer"
                                   VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
                                   CanContentScroll="False"
-                                  PanningMode="Both">
+                                  PanningMode="VerticalOnly">
                         <ScrollViewer.Template>
                             <ControlTemplate TargetType="ScrollViewer">
                                 <Grid Background="{TemplateBinding Background}">
@@ -625,8 +625,8 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type models:SidebarNode}">
                                         <Border CornerRadius="6"
-                                                Padding="{Binding DataContext.SidebarItemPadding, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='10,4.7'}"
-                                                Margin="{Binding DataContext.SidebarItemMargin, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='2,1'}"
+                                                Padding="{Binding DataContext.SidebarItemPadding, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='22,4.7,10,4.7'}"
+                                                Margin="{Binding DataContext.SidebarItemMargin, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue='4,1'}"
                                                 Cursor="Hand"
                                                 AllowDrop="True"
                                                 DragOver="OnSidebarNodeDragOver"
@@ -672,6 +672,7 @@
                                                        Width="16" Height="16"
                                                        HorizontalAlignment="Left"
                                                        VerticalAlignment="Center"
+                                                       Opacity="{Binding DataContext.IconOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}"
                                                        Visibility="{Binding Icon, Converter={StaticResource NullToVis}}" />
                                                 <TextBlock Grid.Column="0"
                                                            FontFamily="{StaticResource IconFont}"
@@ -680,12 +681,14 @@
                                                            Foreground="{DynamicResource AccentBrush}"
                                                            HorizontalAlignment="Left"
                                                            VerticalAlignment="Center"
+                                                           Opacity="{Binding DataContext.IconOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}"
                                                            Visibility="{Binding Icon, Converter={StaticResource InvNullToVis}}" />
                                                 <controls:SpacedTextBlock Grid.Column="1"
                                                                           Text="{Binding Title}"
                                                                           FontSize="{Binding DataContext.SidebarFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                           LetterSpacing="{Binding DataContext.LetterSpacing, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=0}"
                                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                          Opacity="{Binding DataContext.TextOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}"
                                                                           TextTrimming="CharacterEllipsis"
                                                                           VerticalAlignment="Center" />
                                             </Grid>
@@ -733,12 +736,14 @@
                                                    Source="{Binding Icon}"
                                                    Width="16" Height="16"
                                                    HorizontalAlignment="Left"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center"
+                                                   Opacity="{Binding DataContext.IconOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}" />
                                             <controls:SpacedTextBlock Grid.Column="1"
                                                                       Text="{Binding Title}"
                                                                       FontSize="{Binding DataContext.SidebarFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                       LetterSpacing="{Binding DataContext.LetterSpacing, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=0}"
                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                      Opacity="{Binding DataContext.TextOpacity, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=1}"
                                                                       TextTrimming="CharacterEllipsis"
                                                                       VerticalAlignment="Center" />
                                         </Grid>
@@ -914,13 +919,10 @@
                 <Border Background="#8C080706"
                         MouseLeftButtonDown="OnFloatingBackdropClick" />
 
-                <Grid Margin="48">
+                <Grid Margin="16">
                     <Border x:Name="FloatingPreviewCard"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
-                            MinWidth="440"
-                            MaxWidth="980"
-                            MaxHeight="720"
                             Background="{DynamicResource BgElevatedBrush}"
                             BorderBrush="{DynamicResource BorderStrongBrush}"
                             BorderThickness="1"
@@ -1055,8 +1057,6 @@
                                     </Grid.RowDefinitions>
                                     <ScrollViewer x:Name="FloatingImageScrollViewer"
                                                   Grid.Row="0"
-                                                  MaxWidth="920"
-                                                  MaxHeight="540"
                                                   HorizontalScrollBarVisibility="Auto"
                                                   VerticalScrollBarVisibility="Auto"
                                                   PanningMode="Both"
@@ -1067,8 +1067,8 @@
                                         <Image Source="{Binding PreviewImage}"
                                                Stretch="Uniform"
                                                RenderOptions.BitmapScalingMode="HighQuality"
-                                               MaxWidth="900"
-                                               MaxHeight="520"
+                                               MaxWidth="{Binding ViewportWidth, ElementName=FloatingImageScrollViewer}"
+                                               MaxHeight="{Binding ViewportHeight, ElementName=FloatingImageScrollViewer}"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center">
                                             <Image.LayoutTransform>
@@ -1101,8 +1101,6 @@
                                     </Grid.RowDefinitions>
                                     <ScrollViewer x:Name="FloatingVideoScrollViewer"
                                                   Grid.Row="0"
-                                                  MaxWidth="900"
-                                                  MaxHeight="510"
                                                   HorizontalScrollBarVisibility="Auto"
                                                   VerticalScrollBarVisibility="Auto"
                                                   PanningMode="Both"
@@ -1110,10 +1108,8 @@
                                                   PreviewMouseLeftButtonDown="OnFloatingPanStart"
                                                   PreviewMouseMove="OnFloatingPanMove"
                                                   PreviewMouseLeftButtonUp="OnFloatingPanEnd">
-                                        <Rectangle MinWidth="520"
-                                                   MinHeight="300"
-                                                   MaxWidth="880"
-                                                   MaxHeight="490"
+                                        <Rectangle Width="{Binding ViewportWidth, ElementName=FloatingVideoScrollViewer}"
+                                                   Height="{Binding ViewportHeight, ElementName=FloatingVideoScrollViewer}"
                                                    HorizontalAlignment="Center"
                                                    VerticalAlignment="Center">
                                             <Rectangle.LayoutTransform>
@@ -1196,13 +1192,11 @@
 
                             <!-- Text / Code / Archive / App Guidance / Folder Zoom Stage -->
                             <Border Grid.Row="1"
-                                    MinWidth="580"
-                                    MaxWidth="900"
                                     Background="{DynamicResource BgInputBrush}"
                                     BorderBrush="{DynamicResource BorderSubtleBrush}"
                                     BorderThickness="1"
                                     CornerRadius="10"
-                                    Padding="16"
+                                    Padding="14"
                                     ClipToBounds="True">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -1238,7 +1232,6 @@
 
                                     <ScrollViewer x:Name="FloatingTextScrollViewer"
                                                   Grid.Row="1"
-                                                  MaxHeight="500"
                                                   HorizontalScrollBarVisibility="Auto"
                                                   VerticalScrollBarVisibility="Auto"
                                                   PreviewMouseWheel="OnFloatingStagePreviewMouseWheel"
@@ -1285,6 +1278,15 @@
                     </Border>
                 </Grid>
             </Grid>
+
+            <!-- 5. Window Brightness Dimmer Overlay -->
+            <Border x:Name="BrightnessDimOverlay"
+                    Grid.Row="0"
+                    Grid.RowSpan="3"
+                    Panel.ZIndex="200"
+                    Background="#000000"
+                    Opacity="{Binding BrightnessOverlayOpacity}"
+                    IsHitTestVisible="False" />
         </Grid>
     </Border>
 </Window>

@@ -6,10 +6,9 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
 
-  <!-- Replace Name and Publisher with your exact Partner Center App Identity values before uploading -->
   <Identity
-    Name="EigenFiles.Eigen"
-    Publisher="CN=00000000-0000-0000-0000-000000000000"
+    Name="SiiamW.EigenFileExplorer"
+    Publisher="CN=7790793F-951B-41FA-A494-082BF3DB7736"
     Version="1.0.0.0"
     ProcessorArchitecture="x64" />
 
@@ -17,7 +16,7 @@
 
   <Properties>
     <DisplayName>Eigen</DisplayName>
-    <PublisherDisplayName>Eigen</PublisherDisplayName>
+    <PublisherDisplayName>Siiam W</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

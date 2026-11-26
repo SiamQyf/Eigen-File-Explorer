@@ -33,6 +33,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public const double MinIconSize = 10.0;
     public const double MaxIconSize = 64.0;
     public const double DefaultIconSize = 15.0;
+    public const double MinTileIconSize = 32.0;
+    public const double MaxTileIconSize = 160.0;
+    public const double DefaultTileIconSize = 48.0;
     public const double MinIconLeftGap = 0.0;
     public const double MaxIconLeftGap = 48.0;
     public const double DefaultIconLeftGap = 4.0;
@@ -55,6 +58,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public const double MinLetterSpacing = -2.0;
     public const double MaxLetterSpacing = 8.0;
     public const double DefaultLetterSpacing = 0.0;
+
+    public const double MinTransparency = 0.0;
+    public const double MaxTransparency = 0.90;
+    public const double DefaultTransparency = 0.0;
 
     public const string DefaultFontFamilyOverride = "Auto";
 
@@ -81,6 +88,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private double _sidebarVerticalGap;
     private double _homeVerticalGap;
     private double _itemIconSize;
+    private double _tileIconSize;
     private double _iconLeftGap;
     private double _iconTextHorizontalGap;
     private double _iconTextVerticalGap;
@@ -88,6 +96,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _fontFamilyOverride = DefaultFontFamilyOverride;
     private int _fontWeightValue = DefaultFontWeightValue;
     private double _letterSpacing = DefaultLetterSpacing;
+    private double _iconTransparency = DefaultTransparency;
+    private double _textTransparency = DefaultTransparency;
+    private double _windowBrightness = 1.0;
     private FontOption _selectedFontOption = null!;
     private bool _isDarkTheme;
     private bool _isPreviewPaneOpen;
@@ -118,12 +129,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _sidebarVerticalGap = Math.Clamp(_settings.SidebarVerticalGap, MinSidebarVerticalGap, MaxSidebarVerticalGap);
         _homeVerticalGap = Math.Clamp(_settings.HomeVerticalGap, MinHomeVerticalGap, MaxHomeVerticalGap);
         _itemIconSize = Math.Clamp(_settings.ItemIconSize, MinIconSize, MaxIconSize);
+        _tileIconSize = Math.Clamp(_settings.TileIconSize, MinTileIconSize, MaxTileIconSize);
         _iconLeftGap = Math.Clamp(_settings.IconLeftGap, MinIconLeftGap, MaxIconLeftGap);
         _iconTextHorizontalGap = Math.Clamp(_settings.IconTextHorizontalGap, MinIconTextHorizontalGap, MaxIconTextHorizontalGap);
         _iconTextVerticalGap = Math.Clamp(_settings.IconTextVerticalGap, MinIconTextVerticalGap, MaxIconTextVerticalGap);
         _itemFontSize = Math.Clamp(_settings.ItemFontSize, MinFontSize, MaxFontSize);
         _fontWeightValue = ClampFontWeight(_settings.FontWeightValue);
         _letterSpacing = SnapLetterSpacing(_settings.LetterSpacing);
+        _iconTransparency = Math.Clamp(_settings.IconTransparency, MinTransparency, MaxTransparency);
+        _textTransparency = Math.Clamp(_settings.TextTransparency, MinTransparency, MaxTransparency);
+        _windowBrightness = Math.Clamp(_settings.WindowBrightness, 0.40, 1.0);
         _selectedFontOption = ResolveFontOption(_settings.FontFamilyOverride);
         _fontFamilyOverride = _selectedFontOption.Id;
         _isPreviewPaneOpen = _settings.ShowPreviewPane;
@@ -131,6 +146,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         ApplySkinFilter();
         InitializeCommands();
+        RebuildIconPackOptions();
         RebuildSidebar();
 
         var startPath = !string.IsNullOrWhiteSpace(initialPath) && Directory.Exists(initialPath)
@@ -172,6 +188,59 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         IconPackStyle.BlueprintGrid
     ];
 
+    public ObservableCollection<IconPackOption> IconPackOptions { get; } = [];
+
+    private void RebuildIconPackOptions()
+    {
+        IconPackOptions.Clear();
+        var sysDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        foreach (var style in AvailableIconPacks)
+        {
+            var effective = style == IconPackStyle.Auto ? ActiveSkin.IconPack : style;
+            System.Windows.Media.ImageSource? folder;
+            System.Windows.Media.ImageSource? code;
+            System.Windows.Media.ImageSource? image;
+
+            if (effective == IconPackStyle.Native)
+            {
+                (folder, _) = NativeShellService.GetIconAndType(sysDir, isDirectory: true, largeIcon: true);
+                (code, _) = NativeShellService.GetIconAndType("sample.cs", isDirectory: false, largeIcon: true);
+                (image, _) = NativeShellService.GetIconAndType("sample.png", isDirectory: false, largeIcon: true);
+            }
+            else
+            {
+                folder = VectorIconPackService.GetThemedIcon(effective, sysDir, isDirectory: true, isDrive: false, ActiveSkin);
+                code = VectorIconPackService.GetThemedIcon(effective, "sample.cs", isDirectory: false, isDrive: false, ActiveSkin);
+                image = VectorIconPackService.GetThemedIcon(effective, "sample.png", isDirectory: false, isDrive: false, ActiveSkin);
+            }
+
+            var label = style switch
+            {
+                IconPackStyle.Auto => "Auto (Skin)",
+                IconPackStyle.Native => "Native Shell",
+                IconPackStyle.NeonWire => "Neon Wire",
+                IconPackStyle.GlassFrost => "Glass Frost",
+                IconPackStyle.RetroPixel => "Retro Pixel",
+                IconPackStyle.DuotoneMinimal => "Duotone",
+                IconPackStyle.TactileBrutal => "Tactile Brutal",
+                IconPackStyle.Fluent3D => "Fluent 3D",
+                IconPackStyle.SoftPastel => "Soft Pastel",
+                IconPackStyle.MonochromeInk => "Monochrome",
+                IconPackStyle.BlueprintGrid => "Blueprint",
+                _ => style.ToString()
+            };
+
+            IconPackOptions.Add(new IconPackOption
+            {
+                Style = style,
+                DisplayName = label,
+                FolderPreview = folder,
+                CodePreview = code,
+                ImagePreview = image
+            });
+        }
+    }
+
     public IReadOnlyList<FontOption> AvailableFonts => FontCatalogService.GetInstalledFonts();
     public int InstalledFontCount => Math.Max(0, AvailableFonts.Count - 1);
 
@@ -211,6 +280,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     : ThemeCatalogService.DefaultLightSkinId);
                 ThemeChanged?.Invoke(dark);
                 OnPropertyChanged(nameof(ThemeLabel));
+                ScheduleSaveSettings();
             }
         }
     }
@@ -233,7 +303,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(ThemeLabel));
                 OnPropertyChanged(nameof(EffectiveIconPack));
                 SkinChanged?.Invoke(value);
+                RebuildIconPackOptions();
                 RefreshWorkspaceIcons();
+                SaveSettings();
             }
         }
     }
@@ -248,6 +320,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 _settings.IconPackOverride = value;
                 OnPropertyChanged(nameof(EffectiveIconPack));
                 RefreshWorkspaceIcons();
+                SaveSettings();
             }
         }
     }
@@ -300,6 +373,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 {
                     IsFloatingPreviewOpen = false;
                 }
+                ScheduleSaveSettings();
             }
         }
     }
@@ -394,6 +468,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     if (tab.SecondaryPane is not null)
                         tab.SecondaryPane.PreferLargeListIcons = preferLarge;
                 }
+                RaiseLayoutMetricsChanged();
+            }
+        }
+    }
+
+    public double TileIconSize
+    {
+        get => _tileIconSize;
+        set
+        {
+            var clamped = Math.Round(Math.Clamp(value, MinTileIconSize, MaxTileIconSize), 0);
+            if (SetProperty(ref _tileIconSize, clamped))
+            {
+                _settings.TileIconSize = clamped;
                 RaiseLayoutMetricsChanged();
             }
         }
@@ -509,8 +597,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public double SecondaryFontSize => Math.Max(10.5, ItemFontSize - 0.5);
     public double SidebarFontSize => Math.Clamp(ItemFontSize, 11.0, 15.5);
-    public Thickness SidebarItemPadding => new(Math.Max(2, 6 + _iconLeftGap), Math.Round(4 + SidebarVerticalGap * 0.35, 1), 10, Math.Round(4 + SidebarVerticalGap * 0.35, 1));
-    public Thickness SidebarItemMargin => new(2, Math.Round(SidebarVerticalGap / 2.0, 1), 2, Math.Round(SidebarVerticalGap / 2.0, 1));
+    public Thickness SidebarItemPadding => new(18 + _iconLeftGap, Math.Round(4 + SidebarVerticalGap * 0.35, 1), 10, Math.Round(4 + SidebarVerticalGap * 0.35, 1));
+    public Thickness SidebarItemMargin => new(4, Math.Round(SidebarVerticalGap / 2.0, 1), 4, Math.Round(SidebarVerticalGap / 2.0, 1));
     public Thickness SidebarTreeItemPadding => new(_iconLeftGap, Math.Round(4 + SidebarVerticalGap * 0.35, 1), 4, Math.Round(4 + SidebarVerticalGap * 0.35, 1));
     public Thickness SidebarTreeItemMargin => new(4, Math.Round(SidebarVerticalGap / 2.0, 1), 4, Math.Round(SidebarVerticalGap / 2.0, 1));
     public GridLength SidebarIconColumnWidth => new(16 + IconTextHorizontalGap);
@@ -551,7 +639,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public double DetailsTypeColWidth => Math.Round(155 + Math.Max(0, ItemFontSize - 12.5) * 9 + PositiveLetterSpacing * 16 + EffectiveFontWidthBoost);
     public double DetailsSizeColWidth => Math.Round(96 + Math.Max(0, ItemFontSize - 12.5) * 6 + PositiveLetterSpacing * 9 + (FontWeightValue >= 500 ? 6 : 0));
 
-    public double TileIconSize => Math.Round(Math.Clamp(ItemIconSize * 2.6 + 8, 40, 96));
     public Thickness TileIconMargin => new(0, 4, 0, IconTextVerticalGap);
     public double TileCardWidth => Math.Round(Math.Max(122, TileIconSize + ItemFontSize * 5.6 + PositiveLetterSpacing * 14 + EffectiveFontWidthBoost));
     public double TileCardHeight => Math.Round(TileIconSize + IconTextVerticalGap + ItemFontSize * 3.8 + 12 + (FontWeightValue >= 600 ? 4 : 0));
@@ -589,6 +676,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                         tab.SecondaryPane.ShowHiddenFiles = value;
                 }
                 RebuildSidebar();
+                ScheduleSaveSettings();
             }
         }
     }
@@ -610,6 +698,62 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         get => _isFloatingPreviewOpen;
         set => SetProperty(ref _isFloatingPreviewOpen, value && CurrentPreview is { CanZoom: true } && IsPreviewPaneOpen);
     }
+
+    public double WindowBrightness
+    {
+        get => _windowBrightness;
+        set
+        {
+            var clamped = Math.Round(Math.Clamp(value, 0.40, 1.0), 2);
+            if (SetProperty(ref _windowBrightness, clamped))
+            {
+                _settings.WindowBrightness = clamped;
+                ScheduleSaveSettings();
+                OnPropertyChanged(nameof(BrightnessOverlayOpacity));
+                OnPropertyChanged(nameof(WindowBrightnessPercentText));
+            }
+        }
+    }
+
+    public double BrightnessOverlayOpacity => Math.Clamp((1.0 - _windowBrightness) * 0.75, 0.0, 0.45);
+    public string WindowBrightnessPercentText => $"{Math.Round(_windowBrightness * 100):0}%";
+
+    public double IconTransparency
+    {
+        get => _iconTransparency;
+        set
+        {
+            var clamped = Math.Round(Math.Clamp(value, MinTransparency, MaxTransparency), 2);
+            if (SetProperty(ref _iconTransparency, clamped))
+            {
+                _settings.IconTransparency = clamped;
+                ScheduleSaveSettings();
+                OnPropertyChanged(nameof(IconOpacity));
+                OnPropertyChanged(nameof(IconTransparencyPercentText));
+            }
+        }
+    }
+
+    public double TextTransparency
+    {
+        get => _textTransparency;
+        set
+        {
+            var clamped = Math.Round(Math.Clamp(value, MinTransparency, MaxTransparency), 2);
+            if (SetProperty(ref _textTransparency, clamped))
+            {
+                _settings.TextTransparency = clamped;
+                ScheduleSaveSettings();
+                OnPropertyChanged(nameof(TextOpacity));
+                OnPropertyChanged(nameof(TextTransparencyPercentText));
+            }
+        }
+    }
+
+    public double IconOpacity => Math.Clamp(1.0 - _iconTransparency, 0.10, 1.0);
+    public double TextOpacity => Math.Clamp(1.0 - _textTransparency, 0.10, 1.0);
+    public string IconTransparencyPercentText => $"{Math.Round(_iconTransparency * 100):0}%";
+    public string TextTransparencyPercentText => $"{Math.Round(_textTransparency * 100):0}%";
 
     public string? CalculatedFolderSize
     {
@@ -692,6 +836,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand UnpinFromSidebarCommand { get; private set; } = null!;
     public ICommand CalculateFolderSizeCommand { get; private set; } = null!;
     public ICommand OpenPreviewFileCommand { get; private set; } = null!;
+    public ICommand ResetBrightnessCommand { get; private set; } = null!;
     public ICommand CancelOperationCommand { get; private set; } = null!;
     public ICommand NavigateSidebarCommand { get; private set; } = null!;
 
@@ -704,6 +849,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 try { NativeShellService.OpenItem(path); } catch { }
             }
         });
+        ResetBrightnessCommand = new RelayCommand(() => WindowBrightness = 1.0);
         NewTabCommand = new RelayCommand<string>(path => OpenNewTab(path ?? FormatHelper.HomeLocation));
         CloseTabCommand = new RelayCommand<ExplorerTabViewModel>(tab => CloseTab(tab ?? ActiveTab));
         DuplicateTabCommand = new RelayCommand<ExplorerTabViewModel>(tab =>
@@ -780,6 +926,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             SidebarVerticalGap = DefaultSidebarVerticalGap;
             HomeVerticalGap = DefaultHomeVerticalGap;
             ItemIconSize = DefaultIconSize;
+            TileIconSize = DefaultTileIconSize;
             IconLeftGap = DefaultIconLeftGap;
             IconTextHorizontalGap = DefaultIconTextHorizontalGap;
             IconTextVerticalGap = DefaultIconTextVerticalGap;
@@ -787,6 +934,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             FontFamilyOverride = DefaultFontFamilyOverride;
             FontWeightValue = DefaultFontWeightValue;
             LetterSpacing = DefaultLetterSpacing;
+            IconTransparency = DefaultTransparency;
+            TextTransparency = DefaultTransparency;
             ShowToast("Layout & typography reset to defaults");
         });
         ToggleSidebarCommand = new RelayCommand(() => IsSidebarCollapsed = !IsSidebarCollapsed);
@@ -1635,6 +1784,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         bool largeIcon = false)
     {
         var (nativeIcon, typeName) = NativeShellService.GetIconAndType(path, isDirectory, isDrive, largeIcon);
+
+        if (!isDirectory && ArchiveService.IsArchivePath(path))
+        {
+            var ext = Path.GetExtension(path);
+            if (NativeShellService.HasThirdPartyArchiverAssociation(ext))
+                return (nativeIcon, typeName);
+
+            return (VectorIconPackService.GetEigenArchiverIcon(ActiveSkin), typeName);
+        }
+
         var pack = EffectiveIconPack;
         if (pack == IconPackStyle.Native)
             return (nativeIcon, typeName);
@@ -1695,6 +1854,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void RaiseLayoutMetricsChanged()
     {
+        ScheduleSaveSettings();
         OnPropertyChanged(nameof(SecondaryFontSize));
         OnPropertyChanged(nameof(SidebarFontSize));
         OnPropertyChanged(nameof(SidebarItemPadding));
