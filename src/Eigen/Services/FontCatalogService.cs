@@ -53,19 +53,27 @@ public static class FontCatalogService
             new("Auto", "Auto (Skin Default)", "Auto", 0.0)
         };
 
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var discovered = new List<FontOption>();
+        var families = Fonts.SystemFontFamilies.ToArray();
+        var discoveredBag = new ConcurrentBag<FontOption>();
 
-        foreach (var family in Fonts.SystemFontFamilies)
+        Parallel.ForEach(families, family =>
         {
             var source = family.Source?.Trim();
-            if (string.IsNullOrEmpty(source) || ExcludedSymbolFonts.Contains(source) || !seen.Add(source))
-                continue;
+            if (string.IsNullOrEmpty(source) || ExcludedSymbolFonts.Contains(source))
+                return;
 
             if (!HasReadableAsciiGlyphs(family))
-                continue;
+                return;
 
-            discovered.Add(new FontOption(source, source, source, 0.0));
+            discoveredBag.Add(new FontOption(source, source, source, 0.0));
+        });
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var discovered = new List<FontOption>(discoveredBag.Count);
+        foreach (var opt in discoveredBag)
+        {
+            if (seen.Add(opt.Id))
+                discovered.Add(opt);
         }
 
         discovered.Sort((a, b) => string.Compare(a.DisplayName, b.DisplayName, StringComparison.OrdinalIgnoreCase));

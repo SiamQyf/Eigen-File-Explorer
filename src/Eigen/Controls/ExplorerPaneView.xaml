@@ -24,6 +24,15 @@
                      LostKeyboardFocus="OnInlineRenameLostFocus" />
         </DataTemplate>
 
+        <DataTemplate x:Key="LazyListBoxInlineRenameTemplate" DataType="{x:Type models:FileSystemItem}">
+            <TextBox Style="{StaticResource InlineRenameBoxStyle}"
+                     FontSize="{Binding DataContext.ItemFontSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=12}"
+                     Text="{Binding EditingName, UpdateSourceTrigger=PropertyChanged}"
+                     Loaded="OnInlineRenameLoaded"
+                     KeyDown="OnInlineRenameKeyDown"
+                     LostKeyboardFocus="OnInlineRenameLostFocus" />
+        </DataTemplate>
+
         <!-- File ListBox Item Style for Tiles View -->
         <Style x:Key="EigenTileItemStyle" TargetType="ListBoxItem">
             <Setter Property="OverridesDefaultStyle" Value="True" />
@@ -370,6 +379,9 @@
                                                         Padding="7,0"
                                                         FontSize="12"
                                                         Content="{Binding Name}"
+                                                        AllowDrop="True"
+                                                        DragOver="OnBreadcrumbDragOver"
+                                                        Drop="OnBreadcrumbDrop"
                                                         Click="OnBreadcrumbSegmentClick" />
                                                 <Button Style="{StaticResource IconButtonStyle}"
                                                         Width="18" Height="24"
@@ -789,6 +801,9 @@
                              Background="Transparent"
                              BorderThickness="0"
                              Padding="10"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.CanContentScroll="True"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              ItemContainerStyle="{StaticResource EigenTileItemStyle}"
                              Visibility="{Binding ViewMode, Converter={StaticResource EnumToVis}, ConverterParameter={x:Static models:ExplorerViewMode.Tiles}}"
@@ -804,7 +819,7 @@
                              ContextMenuOpening="OnItemsContextMenuOpening">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel />
+                                <controls:VirtualizingTilePanel />
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
@@ -844,14 +859,20 @@
                                                               TextTrimming="CharacterEllipsis"
                                                               Margin="4,0,4,0"
                                                               Visibility="{Binding IsEditing, Converter={StaticResource InvBoolToVis}}" />
-                                    <TextBox Grid.Row="1"
-                                             Style="{StaticResource InlineRenameBoxStyle}"
-                                             FontSize="{Binding DataContext.ItemFontSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=12}"
-                                             Text="{Binding EditingName, UpdateSourceTrigger=PropertyChanged}"
-                                             Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}"
-                                             IsVisibleChanged="OnInlineRenameVisibleChanged"
-                                             KeyDown="OnInlineRenameKeyDown"
-                                             LostKeyboardFocus="OnInlineRenameLostFocus" />
+                                    <ContentControl Grid.Row="1"
+                                                    Content="{Binding}"
+                                                    Focusable="False"
+                                                    Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
+                                        <ContentControl.Style>
+                                            <Style TargetType="ContentControl">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                        <Setter Property="ContentTemplate" Value="{StaticResource LazyListBoxInlineRenameTemplate}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ContentControl.Style>
+                                    </ContentControl>
                                     <controls:SpacedTextBlock Grid.Row="2"
                                                               Text="{Binding SizeDisplay}"
                                                               Foreground="{DynamicResource TextMutedBrush}"
@@ -874,6 +895,9 @@
                              Background="Transparent"
                              BorderThickness="0"
                              Padding="8"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.CanContentScroll="True"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              ItemContainerStyle="{StaticResource EigenCompactItemStyle}"
                              Visibility="{Binding ViewMode, Converter={StaticResource EnumToVis}, ConverterParameter={x:Static models:ExplorerViewMode.Compact}}"
@@ -889,7 +913,7 @@
                              ContextMenuOpening="OnItemsContextMenuOpening">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel />
+                                <controls:VirtualizingTilePanel />
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
@@ -923,14 +947,20 @@
                                                               TextTrimming="CharacterEllipsis"
                                                               VerticalAlignment="Center"
                                                               Visibility="{Binding IsEditing, Converter={StaticResource InvBoolToVis}}" />
-                                    <TextBox Grid.Column="1"
-                                             Style="{StaticResource InlineRenameBoxStyle}"
-                                             FontSize="{Binding DataContext.ItemFontSize, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=12}"
-                                             Text="{Binding EditingName, UpdateSourceTrigger=PropertyChanged}"
-                                             Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}"
-                                             IsVisibleChanged="OnInlineRenameVisibleChanged"
-                                             KeyDown="OnInlineRenameKeyDown"
-                                             LostKeyboardFocus="OnInlineRenameLostFocus" />
+                                    <ContentControl Grid.Column="1"
+                                                    Content="{Binding}"
+                                                    Focusable="False"
+                                                    Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
+                                        <ContentControl.Style>
+                                            <Style TargetType="ContentControl">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                        <Setter Property="ContentTemplate" Value="{StaticResource LazyListBoxInlineRenameTemplate}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ContentControl.Style>
+                                    </ContentControl>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

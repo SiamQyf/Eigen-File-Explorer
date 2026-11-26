@@ -18,7 +18,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        _viewModel = new MainViewModel(initialPath);
+        _viewModel = new MainViewModel(initialPath, deferStartupCatalogs: true);
         DataContext = _viewModel;
 
         if (_viewModel.Settings.IsMaximized)
@@ -54,6 +54,7 @@ public partial class MainWindow : Window
                 UpdateFloatingPreviewVisual(_viewModel.IsFloatingPreviewOpen);
         };
         Deactivated += (_, _) => _viewModel.IsFloatingPreviewOpen = false;
+        PreviewMouseDown += OnWindowPreviewMouseDown;
         PreviewInspectorControl.VideoStateChanged += OnPreviewVideoStateChanged;
         _viewModel.ConfirmAction += (title, message) =>
             MessageBox.Show(this, message, title, MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
@@ -70,9 +71,12 @@ public partial class MainWindow : Window
             NativeShellService.PrepareSmoothWindowEntrance(this);
         };
 
+        Loaded += (_, _) => PlaySmoothOpenAnimation();
+
         ContentRendered += async (_, _) =>
         {
-            await Task.Delay(250);
+            await _viewModel.CompleteDeferredStartupAsync();
+            await Task.Delay(200);
             var pane = _viewModel.ActivePane;
             if (pane is not null)
             {
@@ -85,6 +89,42 @@ public partial class MainWindow : Window
                 ]);
             }
         };
+    }
+
+    private void PlaySmoothOpenAnimation()
+    {
+        var ease = new System.Windows.Media.Animation.CubicEase
+        {
+            EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut
+        };
+        var fadeDuration = TimeSpan.FromMilliseconds(110);
+        var motionDuration = TimeSpan.FromMilliseconds(135);
+
+        var fadeIn = new System.Windows.Media.Animation.DoubleAnimation(0.65, 1.0, fadeDuration)
+        {
+            EasingFunction = ease,
+            FillBehavior = System.Windows.Media.Animation.FillBehavior.HoldEnd
+        };
+        var scaleX = new System.Windows.Media.Animation.DoubleAnimation(0.992, 1.0, motionDuration)
+        {
+            EasingFunction = ease,
+            FillBehavior = System.Windows.Media.Animation.FillBehavior.HoldEnd
+        };
+        var scaleY = new System.Windows.Media.Animation.DoubleAnimation(0.992, 1.0, motionDuration)
+        {
+            EasingFunction = ease,
+            FillBehavior = System.Windows.Media.Animation.FillBehavior.HoldEnd
+        };
+        var slideY = new System.Windows.Media.Animation.DoubleAnimation(4.0, 0.0, motionDuration)
+        {
+            EasingFunction = ease,
+            FillBehavior = System.Windows.Media.Animation.FillBehavior.HoldEnd
+        };
+
+        RootGrid.BeginAnimation(OpacityProperty, fadeIn);
+        WindowOpenScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleX);
+        WindowOpenScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+        WindowOpenTranslate.BeginAnimation(TranslateTransform.YProperty, slideY);
     }
 
     private void UpdateSidebarLayout()
@@ -437,6 +477,13 @@ public partial class MainWindow : Window
 
         var activePaneView = GetActivePaneView();
 
+        if (ctrl && shift && !alt && e.Key == Key.T)
+        {
+            _viewModel.ReopenClosedTabCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         if (ctrl && !alt && e.Key == Key.T)
         {
             _viewModel.NewTabCommand.Execute(null);
@@ -444,9 +491,19 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (ctrl && !alt && e.Key == Key.W)
+        if (ctrl && !alt && (e.Key == Key.W || e.Key == Key.F4))
         {
             _viewModel.CloseTabCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (ctrl && !shift && !alt && e.Key == Key.N)
+        {
+            var path = _viewModel.ActivePane is { IsHome: false } pane ? pane.CurrentPath : null;
+            var newWin = new MainWindow(path);
+            newWin.Show();
+            newWin.Activate();
             e.Handled = true;
             return;
         }
@@ -473,14 +530,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        if ((ctrl && e.Key == Key.L) || (alt && e.SystemKey == Key.D))
+        if ((ctrl && e.Key == Key.L) || (alt && e.SystemKey == Key.D) || (!ctrl && !alt && !shift && e.Key == Key.F4 && !isTyping))
         {
             activePaneView?.FocusAddressBar();
             e.Handled = true;
             return;
         }
 
-        if (ctrl && (e.Key == Key.F || e.Key == Key.E))
+        if ((ctrl && (e.Key == Key.F || e.Key == Key.E)) || (!ctrl && !alt && !shift && e.Key == Key.F3))
         {
             activePaneView?.FocusSearchBox();
             e.Handled = true;
@@ -508,7 +565,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.Key == Key.F5)
+        if (e.Key == Key.F5 || (ctrl && !shift && !alt && e.Key == Key.R))
         {
             _viewModel.ActivePane?.RefreshCommand.Execute(null);
             e.Handled = true;
@@ -652,15 +709,55 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (ctrl && shift)
+        {
+            if (e.Key is Key.D2 or Key.D3 or Key.D4)
+            {
+                _viewModel.SetViewModeCommand.Execute(ExplorerViewMode.Tiles);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.D5)
+            {
+                _viewModel.SetViewModeCommand.Execute(ExplorerViewMode.Compact);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.D6)
+            {
+                _viewModel.SetViewModeCommand.Execute(ExplorerViewMode.Details);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (((shift && e.Key == Key.F10) || e.Key == Key.Apps) && !ctrl && !alt && !IsTextOrMenuFocused())
+        {
+            activePaneView?.OpenContextMenuFromKeyboard();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.F2)
         {
             _viewModel.RenameCommand.Execute(null);
             e.Handled = true;
         }
-        else if (e.Key == Key.Delete)
+        else if (e.Key == Key.Delete || (ctrl && !shift && !alt && e.Key == Key.D))
         {
             if (shift) _viewModel.PermanentDeleteCommand.Execute(null);
             else _viewModel.DeleteCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (ctrl && !shift && !alt && e.Key == Key.A && !IsTextOrMenuFocused())
+        {
+            activePaneView?.SelectAllItems();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Back && !ctrl && !alt && !shift && _viewModel.ActivePane is { IsHome: false } backPane && !IsTextOrMenuFocused())
+        {
+            if (backPane.CanGoBack) backPane.GoBack();
+            else backPane.GoUp();
             e.Handled = true;
         }
         else if (ctrl && e.Key == Key.C)
@@ -681,6 +778,20 @@ public partial class MainWindow : Window
         else if (ctrl && e.Key == Key.Z)
         {
             _viewModel.UndoCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private void OnWindowPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.XButton1)
+        {
+            _viewModel.ActivePane?.GoBackCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.ChangedButton == MouseButton.XButton2)
+        {
+            _viewModel.ActivePane?.GoForwardCommand.Execute(null);
             e.Handled = true;
         }
     }

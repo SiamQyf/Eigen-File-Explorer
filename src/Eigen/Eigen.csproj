@@ -9,6 +9,7 @@
     <AssemblyTitle>Eigen</AssemblyTitle>
     <Product>Eigen</Product>
     <ApplicationIcon>Assets\Eigen.ico</ApplicationIcon>
+    <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>

@@ -25,6 +25,11 @@ public partial class ExplorerPaneView : UserControl
     private System.Windows.Threading.DispatcherTimer? _marqueeAutoScrollTimer;
     private Point _marqueeLastViewport;
 
+    private System.Windows.Threading.DispatcherTimer? _slowClickRenameTimer;
+    private FileSystemItem? _pendingSlowRenameItem;
+    private ListBox? _pendingSlowRenameListBox;
+    private bool _wasAlreadySelectedNameClick;
+
     private ExplorerPaneViewModel? _hookedVm;
     private MainViewModel? _hookedHostVm;
     private ScrollViewer? _detailsScrollViewer;
@@ -34,6 +39,7 @@ public partial class ExplorerPaneView : UserControl
     public ExplorerPaneView()
     {
         InitializeComponent();
+        PreviewMouseWheel += OnPanePreviewMouseWheel;
         DataContextChanged += OnPaneDataContextChanged;
         Loaded += OnPaneLoaded;
         Unloaded += OnPaneUnloaded;
@@ -242,7 +248,25 @@ public partial class ExplorerPaneView : UserControl
     private void OnRequestInlineRename(FileSystemItem item)
     {
         if (ViewModel is null) return;
-        GetActiveItemsListBox().ScrollIntoView(item);
+        CancelSlowClickRename();
+        var activeList = GetActiveItemsListBox();
+        if (activeList.SelectedItems.Count != 1 || !ReferenceEquals(activeList.SelectedItem, item))
+        {
+            activeList.SelectedItems.Clear();
+            activeList.SelectedItem = item;
+        }
+        activeList.ScrollIntoView(item);
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!item.IsEditing) return;
+            if (activeList.ItemContainerGenerator.ContainerFromItem(item) is DependencyObject container)
+            {
+                var tb = FindChild<TextBox>(container);
+                if (tb is not null && tb.IsVisible)
+                    FocusInlineRenameTextBox(tb);
+            }
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnRequestScrollAndSelect(FileSystemItem item)
@@ -295,6 +319,20 @@ public partial class ExplorerPaneView : UserControl
     private void OnPanePreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         ViewModel?.Activate();
+    }
+
+    private void OnPanePreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0 || HostViewModel is null || ViewModel is { IsHome: true })
+            return;
+
+        var step = e.Delta > 0 ? 1 : -1;
+        if (ViewModel?.ViewMode == ExplorerViewMode.Tiles)
+            HostViewModel.TileIconSize += step * 8;
+        else
+            HostViewModel.ItemIconSize += step * 2;
+
+        e.Handled = true;
     }
 
     private void OnAddressBarPreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -432,11 +470,24 @@ public partial class ExplorerPaneView : UserControl
 
     private void OnItemDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        CancelSlowClickRename();
         if (e.OriginalSource is DependencyObject dep && FindParent<TextBox>(dep) is not null)
             return;
 
         if (e.OriginalSource is DependencyObject src && FindParent<ListBoxItem>(src)?.DataContext is FileSystemItem item)
         {
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0)
+            {
+                HostViewModel?.ShowPropertiesCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && item.IsDirectory)
+            {
+                HostViewModel?.OpenNewTab(item.FullPath);
+                e.Handled = true;
+                return;
+            }
             ViewModel?.OpenItem(item);
             e.Handled = true;
         }
@@ -457,14 +508,34 @@ public partial class ExplorerPaneView : UserControl
     {
         if (Keyboard.FocusedElement is TextBox) return;
 
-        if (e.Key == Key.Enter && ViewModel?.SelectedItem is not null)
+        if (e.Key == Key.Enter && ViewModel is not null)
         {
-            ViewModel.OpenItem(ViewModel.SelectedItem);
-            e.Handled = true;
+            if (ViewModel.SelectedItems.Count > 1)
+            {
+                var firstDir = ViewModel.SelectedItems.FirstOrDefault(i => i.IsDirectory);
+                if (firstDir is not null)
+                {
+                    ViewModel.OpenItem(firstDir);
+                }
+                else
+                {
+                    foreach (var sel in ViewModel.SelectedItems.ToList())
+                        ViewModel.OpenItem(sel);
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (ViewModel.SelectedItem is not null)
+            {
+                ViewModel.OpenItem(ViewModel.SelectedItem);
+                e.Handled = true;
+            }
         }
         else if (e.Key == Key.Back && ViewModel is { IsHome: false })
         {
-            ViewModel.GoUp();
+            if (ViewModel.CanGoBack) ViewModel.GoBack();
+            else ViewModel.GoUp();
             e.Handled = true;
         }
     }
@@ -558,8 +629,18 @@ public partial class ExplorerPaneView : UserControl
     }
 
     // Drag & Drop support
+    private void CancelSlowClickRename()
+    {
+        _slowClickRenameTimer?.Stop();
+        _pendingSlowRenameItem = null;
+        _pendingSlowRenameListBox = null;
+        _wasAlreadySelectedNameClick = false;
+    }
+
     private void OnItemsPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        CancelSlowClickRename();
+
         if (e.OriginalSource is not DependencyObject dep) return;
         if (FindParent<TextBox>(dep) is not null ||
             FindParent<System.Windows.Controls.Primitives.ScrollBar>(dep) is not null ||
@@ -587,6 +668,21 @@ public partial class ExplorerPaneView : UserControl
                     e.Handled = true;
                 return;
             }
+
+            // Windows Explorer slow-click rename: single-click on the name of an already-selected item
+            if (e.ClickCount == 1 &&
+                (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift | ModifierKeys.Alt)) == 0 &&
+                lbi.DataContext is FileSystemItem clickedItem &&
+                !clickedItem.IsEditing &&
+                lb.SelectedItems.Count == 1 &&
+                ReferenceEquals(lb.SelectedItem, clickedItem) &&
+                FindParent<SpacedTextBlock>(dep) is { } nameBlock &&
+                string.Equals(nameBlock.Text, clickedItem.Name, StringComparison.Ordinal))
+            {
+                _pendingSlowRenameItem = clickedItem;
+                _pendingSlowRenameListBox = lb;
+                _wasAlreadySelectedNameClick = true;
+            }
         }
 
         _dragStartPoint = e.GetPosition(null);
@@ -610,7 +706,53 @@ public partial class ExplorerPaneView : UserControl
 
     private void OnItemsPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        var wasMarquee = _isMarqueeActive;
         EndMarqueeSelection();
+
+        if (!wasMarquee &&
+            _wasAlreadySelectedNameClick &&
+            _pendingSlowRenameItem is { } targetItem &&
+            _pendingSlowRenameListBox is { } targetLb)
+        {
+            var pos = e.GetPosition(null);
+            if (Math.Abs(pos.X - _dragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(pos.Y - _dragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+            {
+                _slowClickRenameTimer ??= CreateSlowClickRenameTimer();
+                _slowClickRenameTimer.Stop();
+                _slowClickRenameTimer.Start();
+                return;
+            }
+        }
+
+        CancelSlowClickRename();
+    }
+
+    private System.Windows.Threading.DispatcherTimer CreateSlowClickRenameTimer()
+    {
+        var timer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(550)
+        };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            var item = _pendingSlowRenameItem;
+            var lb = _pendingSlowRenameListBox;
+            CancelSlowClickRename();
+
+            if (item is not null &&
+                lb is not null &&
+                ViewModel is not null &&
+                !item.IsEditing &&
+                lb.SelectedItems.Count == 1 &&
+                ReferenceEquals(lb.SelectedItem, item) &&
+                ViewModel.Items.Contains(item))
+            {
+                ViewModel.TriggerInlineRename(item);
+            }
+        };
+        return timer;
     }
 
     private void OnItemsLostMouseCapture(object sender, MouseEventArgs e)
@@ -1414,6 +1556,61 @@ public partial class ExplorerPaneView : UserControl
             if (ViewModel is { IsHome: false } pane)
                 await pane.RefreshAsync();
         });
+    }
+
+    public void SelectAllItems()
+    {
+        var activeList = GetActiveItemsListBox();
+        activeList.SelectAll();
+    }
+
+    public void OpenContextMenuFromKeyboard()
+    {
+        if (ViewModel is null || ViewModel.IsHome) return;
+        var activeList = GetActiveItemsListBox();
+        if (ViewModel.SelectedItem is not null &&
+            activeList.ItemContainerGenerator.ContainerFromItem(ViewModel.SelectedItem) is ListBoxItem lbi &&
+            FindChild<FrameworkElement>(lbi) is { ContextMenu: not null } target)
+        {
+            target.ContextMenu.PlacementTarget = lbi;
+            target.ContextMenu.IsOpen = true;
+            return;
+        }
+
+        if (activeList.ContextMenu is not null)
+        {
+            activeList.ContextMenu.PlacementTarget = activeList;
+            activeList.ContextMenu.IsOpen = true;
+        }
+    }
+
+    private void OnBreadcrumbDragOver(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: BreadcrumbSegment seg } &&
+            !Eigen.Services.FormatHelper.IsHomePath(seg.FullPath) &&
+            e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            e.Effects = ResolveDropEffect(e, seg.FullPath);
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private async void OnBreadcrumbDrop(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: BreadcrumbSegment seg } &&
+            !Eigen.Services.FormatHelper.IsHomePath(seg.FullPath) &&
+            HostViewModel is not null &&
+            e.Data.GetData(DataFormats.FileDrop) is string[] files &&
+            files.Length > 0)
+        {
+            var isMove = ResolveDropEffect(e, seg.FullPath) == DragDropEffects.Move;
+            e.Handled = true;
+            await HostViewModel.HandleDropAsync(files, seg.FullPath, isMove);
+        }
     }
 
     private void OnBgRefreshClick(object sender, RoutedEventArgs e)

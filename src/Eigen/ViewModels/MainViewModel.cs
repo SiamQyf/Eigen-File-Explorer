@@ -69,6 +69,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly SettingsService _settingsService;
     private readonly AppSettings _settings;
     private readonly Stack<UndoRecord> _undoStack = new();
+    private readonly Stack<string> _closedTabPaths = new();
     private readonly HashSet<string> _cutPaths = new(StringComparer.OrdinalIgnoreCase);
 
     private CancellationTokenSource? _previewCts;
@@ -99,6 +100,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private double _iconTransparency = DefaultTransparency;
     private double _textTransparency = DefaultTransparency;
     private double _windowBrightness = 1.0;
+    private IReadOnlyList<FontOption> _availableFonts = [];
     private FontOption _selectedFontOption = null!;
     private bool _isDarkTheme;
     private bool _isPreviewPaneOpen;
@@ -115,7 +117,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _toastMessage = string.Empty;
     private bool _isToastVisible;
 
-    public MainViewModel(string? initialPath = null, string? settingsPath = null)
+    public MainViewModel(string? initialPath = null, string? settingsPath = null, bool deferStartupCatalogs = false)
     {
         _settingsService = new SettingsService(settingsPath);
         _settings = _settingsService.Load();
@@ -139,15 +141,41 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _iconTransparency = Math.Clamp(_settings.IconTransparency, MinTransparency, MaxTransparency);
         _textTransparency = Math.Clamp(_settings.TextTransparency, MinTransparency, MaxTransparency);
         _windowBrightness = Math.Clamp(_settings.WindowBrightness, 0.40, 1.0);
-        _selectedFontOption = ResolveFontOption(_settings.FontFamilyOverride);
+
+        if (deferStartupCatalogs)
+        {
+            var autoOpt = new FontOption(DefaultFontFamilyOverride, "Auto (Skin Default)", DefaultFontFamilyOverride, 0.0);
+            var saved = _settings.FontFamilyOverride;
+            if (!string.IsNullOrWhiteSpace(saved) &&
+                !string.Equals(saved, DefaultFontFamilyOverride, StringComparison.OrdinalIgnoreCase))
+            {
+                var customOpt = new FontOption(saved, saved, saved, 0.0);
+                _availableFonts = [autoOpt, customOpt];
+                _selectedFontOption = customOpt;
+            }
+            else
+            {
+                _availableFonts = [autoOpt];
+                _selectedFontOption = autoOpt;
+            }
+        }
+        else
+        {
+            _availableFonts = FontCatalogService.GetInstalledFonts();
+            _selectedFontOption = ResolveFontOption(_settings.FontFamilyOverride);
+        }
+
         _fontFamilyOverride = _selectedFontOption.Id;
         _isPreviewPaneOpen = _settings.ShowPreviewPane;
         _showHiddenFiles = _settings.ShowHiddenFiles;
 
         ApplySkinFilter();
         InitializeCommands();
-        RebuildIconPackOptions();
-        RebuildSidebar();
+        if (!deferStartupCatalogs)
+        {
+            RebuildIconPackOptions();
+            RebuildSidebar();
+        }
 
         var startPath = !string.IsNullOrWhiteSpace(initialPath) && Directory.Exists(initialPath)
             ? initialPath
@@ -241,8 +269,28 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public IReadOnlyList<FontOption> AvailableFonts => FontCatalogService.GetInstalledFonts();
+    public IReadOnlyList<FontOption> AvailableFonts => _availableFonts;
     public int InstalledFontCount => Math.Max(0, AvailableFonts.Count - 1);
+
+    public async Task CompleteDeferredStartupAsync()
+    {
+        if (QuickAccessNodes.Count == 0 && DriveTreeNodes.Count == 0)
+            RebuildSidebar();
+
+        if (IconPackOptions.Count == 0)
+            RebuildIconPackOptions();
+
+        if (_availableFonts.Count <= 2)
+        {
+            var fonts = await Task.Run(() => FontCatalogService.GetInstalledFonts());
+            _availableFonts = fonts;
+            var resolved = ResolveFontOption(_fontFamilyOverride);
+            _selectedFontOption = resolved;
+            OnPropertyChanged(nameof(AvailableFonts));
+            OnPropertyChanged(nameof(InstalledFontCount));
+            OnPropertyChanged(nameof(SelectedFontOption));
+        }
+    }
 
     public AppSettings Settings => _settings;
 
@@ -795,6 +843,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public string UndoLabel => _undoStack.Count > 0 ? $"Undo {_undoStack.Peek().Description}" : "Undo";
 
     public ICommand NewTabCommand { get; private set; } = null!;
+    public ICommand ReopenClosedTabCommand { get; private set; } = null!;
     public ICommand CloseTabCommand { get; private set; } = null!;
     public ICommand DuplicateTabCommand { get; private set; } = null!;
     public ICommand CloseOtherTabsCommand { get; private set; } = null!;
@@ -851,6 +900,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         });
         ResetBrightnessCommand = new RelayCommand(() => WindowBrightness = 1.0);
         NewTabCommand = new RelayCommand<string>(path => OpenNewTab(path ?? FormatHelper.HomeLocation));
+        ReopenClosedTabCommand = new RelayCommand(() =>
+        {
+            if (_closedTabPaths.Count > 0)
+                OpenNewTab(_closedTabPaths.Pop());
+        });
         CloseTabCommand = new RelayCommand<ExplorerTabViewModel>(tab => CloseTab(tab ?? ActiveTab));
         DuplicateTabCommand = new RelayCommand<ExplorerTabViewModel>(tab =>
         {
@@ -1083,6 +1137,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (tab is null || Tabs.Count <= 1) return;
         var idx = Tabs.IndexOf(tab);
         if (idx < 0) return;
+
+        var closedPath = tab.PrimaryPane.CurrentPath;
+        if (!string.IsNullOrWhiteSpace(closedPath))
+            _closedTabPaths.Push(closedPath);
 
         Tabs.RemoveAt(idx);
         tab.Dispose();

@@ -1,5 +1,8 @@
 using System.Diagnostics;
+using System.IO;
+using System.IO.Pipes;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -35,6 +38,30 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        try
+        {
+            var profileDir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Eigen");
+            System.IO.Directory.CreateDirectory(profileDir);
+            System.Runtime.ProfileOptimization.SetProfileRoot(profileDir);
+            System.Runtime.ProfileOptimization.StartProfile("Eigen.startup.profile");
+        }
+        catch
+        {
+            // Ignore profile optimization failures on restricted environments
+        }
+
+        // Pre-warm font catalog on a background core while MainWindow XAML initializes
+        _ = Task.Run(() => FontCatalogService.GetInstalledFonts());
+
+        var initialPath = e.Args.Length > 0 ? e.Args[0] : null;
+        if (TryForwardLaunchToExistingInstance(initialPath))
+        {
+            Shutdown(0);
+            return;
+        }
+
         base.OnStartup(e);
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -61,10 +88,64 @@ public partial class App : Application
             UIElement.PreviewKeyDownEvent,
             new KeyEventHandler(OnGlobalScrollViewerKeyDown));
 
-        var initialPath = e.Args.Length > 0 ? e.Args[0] : null;
         var window = new MainWindow(initialPath);
         MainWindow = window;
         window.Show();
+
+        StartWarmLaunchPipeServer();
+    }
+
+    private const string WarmLaunchPipeName = "Eigen.WarmLaunch.v1";
+
+    private static bool TryForwardLaunchToExistingInstance(string? initialPath)
+    {
+        try
+        {
+            using var client = new NamedPipeClientStream(".", WarmLaunchPipeName, PipeDirection.Out);
+            client.Connect(25);
+            using var writer = new StreamWriter(client, Encoding.UTF8) { AutoFlush = true };
+            writer.WriteLine(initialPath ?? string.Empty);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void StartWarmLaunchPipeServer()
+    {
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                try
+                {
+                    using var server = new NamedPipeServerStream(
+                        WarmLaunchPipeName,
+                        PipeDirection.In,
+                        1,
+                        PipeTransmissionMode.Byte,
+                        PipeOptions.Asynchronous);
+
+                    await server.WaitForConnectionAsync();
+                    using var reader = new StreamReader(server, Encoding.UTF8);
+                    var rawPath = await reader.ReadLineAsync();
+                    var path = string.IsNullOrWhiteSpace(rawPath) ? null : rawPath.Trim();
+
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        var win = new MainWindow(path);
+                        win.Show();
+                        win.Activate();
+                    });
+                }
+                catch
+                {
+                    await Task.Delay(100);
+                }
+            }
+        });
     }
 
     private static void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)

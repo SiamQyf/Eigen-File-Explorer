@@ -304,7 +304,34 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
 
     public async Task NavigateToAsync(string rawPath, bool recordHistory = true, string? selectItemPath = null)
     {
-        var target = FormatHelper.ExpandNavigationPath(rawPath);
+        var trimmed = rawPath?.Trim() ?? string.Empty;
+        if (trimmed.Equals("cmd", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("pwsh", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("wt", StringComparison.OrdinalIgnoreCase))
+        {
+            var workDir = !IsHome && Directory.Exists(CurrentPath)
+                ? CurrentPath
+                : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = trimmed,
+                    WorkingDirectory = workDir,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+            AddressBarText = IsHome ? "Home" : CurrentPath;
+            IsAddressEditing = false;
+            return;
+        }
+
+        var target = FormatHelper.ExpandNavigationPath(trimmed);
         if (!FormatHelper.IsHomePath(target) && !Directory.Exists(target))
         {
             if (File.Exists(target))
@@ -672,24 +699,6 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
                     ? raw
                     : raw.Where(i => i.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
                 var ordered = SortItems(filtered).ToList();
-
-                // Assign fast cached folder/extension icons to ALL items immediately (just like Explorer's system image list),
-                // and resolve per-file .exe/.lnk/.ico icons for the visible viewport off the UI thread.
-                ResolveFastCategoryIcons(ordered, ct);
-                var preloadCount = Math.Min(36, ordered.Count);
-                for (var i = 0; i < preloadCount; i++)
-                {
-                    if (ct.IsCancellationRequested) break;
-                    var item = ordered[i];
-                    if (item.Icon is null || (!item.IsDirectory && HasPerFileIcon(item.Extension)))
-                    {
-                        var (icon, typeName) = ResolveIconAndType(item.FullPath, item.IsDirectory);
-                        item.Icon = icon;
-                        if (!string.IsNullOrWhiteSpace(typeName))
-                            item.TypeDescription = typeName;
-                    }
-                }
-
                 return (raw, ordered);
             }, ct);
             if (ct.IsCancellationRequested) return;
@@ -721,8 +730,8 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
 
             IsLoading = false;
 
-            if (sorted.Count > 36)
-                _ = EnrichIconsBackgroundAsync(sorted, 36, ct);
+            if (sorted.Count > 0)
+                _ = EnrichIconsBackgroundAsync(sorted, 0, ct);
             if (ViewMode == ExplorerViewMode.Tiles)
                 await EnrichTilesAssetsAsync(ct);
             else if (PreferLargeListIcons)
@@ -922,27 +931,42 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var resolved = await Task.Run(() =>
-            {
-                var list = new List<(FileSystemItem Item, ImageSource? Icon, string TypeName)>(items.Count - startIndex);
-                for (var i = startIndex; i < items.Count; i++)
-                {
-                    if (ct.IsCancellationRequested) return list;
-                    var item = items[i];
-                    if (item.Icon is not null) continue;
-                    var (icon, typeName) = ResolveIconAndType(item.FullPath, item.IsDirectory);
-                    list.Add((item, icon, typeName));
-                }
-                return list;
-            }, ct);
+            const int firstBatchSize = 48;
+            const int chunkSize = 150;
+            var index = startIndex;
+            var batchSize = firstBatchSize;
 
-            if (ct.IsCancellationRequested) return;
-            foreach (var (item, icon, typeName) in resolved)
+            while (index < items.Count)
             {
                 if (ct.IsCancellationRequested) return;
-                item.Icon = icon;
-                if (!string.IsNullOrWhiteSpace(typeName))
-                    item.TypeDescription = typeName;
+                var end = Math.Min(index + batchSize, items.Count);
+                var start = index;
+
+                var resolved = await Task.Run(() =>
+                {
+                    var list = new List<(FileSystemItem Item, ImageSource? Icon, string TypeName)>(end - start);
+                    for (var i = start; i < end; i++)
+                    {
+                        if (ct.IsCancellationRequested) return list;
+                        var item = items[i];
+                        if (item.Icon is not null) continue;
+                        var (icon, typeName) = ResolveIconAndType(item.FullPath, item.IsDirectory);
+                        list.Add((item, icon, typeName));
+                    }
+                    return list;
+                }, ct);
+
+                if (ct.IsCancellationRequested) return;
+                foreach (var (item, icon, typeName) in resolved)
+                {
+                    if (ct.IsCancellationRequested) return;
+                    item.Icon = icon;
+                    if (!string.IsNullOrWhiteSpace(typeName))
+                        item.TypeDescription = typeName;
+                }
+
+                index = end;
+                batchSize = chunkSize;
             }
         }
         catch (OperationCanceledException)
@@ -958,14 +982,28 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
         for (var i = 0; i < itemsNeedingLargeIcons.Count; i += batchSize)
         {
             if (ct.IsCancellationRequested) return;
+            var start = i;
             var end = Math.Min(i + batchSize, itemsNeedingLargeIcons.Count);
-            for (var j = i; j < end; j++)
+
+            var resolved = await Task.Run(() =>
             {
-                var item = itemsNeedingLargeIcons[j];
-                var (largeIcon, _) = ResolveIconAndType(item.FullPath, item.IsDirectory, largeIcon: true);
+                var list = new List<(FileSystemItem Item, ImageSource? LargeIcon)>(end - start);
+                for (var j = start; j < end; j++)
+                {
+                    if (ct.IsCancellationRequested) return list;
+                    var item = itemsNeedingLargeIcons[j];
+                    var (largeIcon, _) = ResolveIconAndType(item.FullPath, item.IsDirectory, largeIcon: true);
+                    list.Add((item, largeIcon));
+                }
+                return list;
+            }, ct);
+
+            if (ct.IsCancellationRequested) return;
+            foreach (var (item, largeIcon) in resolved)
+            {
+                if (ct.IsCancellationRequested) return;
                 item.LargeIcon = largeIcon;
             }
-            await Task.Yield();
         }
     }
 
@@ -978,14 +1016,27 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
             .Take(160)
             .ToList();
 
-        foreach (var item in imageItems)
-        {
-            if (ct.IsCancellationRequested) return;
-            var thumb = await Task.Run(() => FileSystemService.LoadThumbnail(item.FullPath, 140), ct);
-            if (ct.IsCancellationRequested) return;
-            if (thumb is not null)
-                item.Thumbnail = thumb;
-        }
+        if (imageItems.Count == 0) return;
+
+        var dispatcher = Application.Current?.Dispatcher;
+        await Parallel.ForEachAsync(
+            imageItems,
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 2, 6),
+                CancellationToken = ct
+            },
+            async (item, token) =>
+            {
+                var thumb = FileSystemService.LoadThumbnail(item.FullPath, 140);
+                if (thumb is not null && !token.IsCancellationRequested)
+                {
+                    if (dispatcher is not null)
+                        await dispatcher.InvokeAsync(() => item.Thumbnail = thumb);
+                    else
+                        item.Thumbnail = thumb;
+                }
+            });
     }
 
     private void RebuildBreadcrumbs()
@@ -1129,7 +1180,7 @@ public sealed class ExplorerPaneViewModel : ObservableObject, IDisposable
                 {
                     await app.Dispatcher.InvokeAsync(() =>
                     {
-                        if (!cts.Token.IsCancellationRequested && !IsDeepSearch)
+                        if (!cts.Token.IsCancellationRequested && !IsDeepSearch && !Items.Any(i => i.IsEditing))
                             _ = RefreshAsync();
                     });
                 }

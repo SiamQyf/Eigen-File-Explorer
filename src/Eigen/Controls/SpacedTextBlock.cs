@@ -123,6 +123,43 @@ public sealed class SpacedTextBlock : FrameworkElement
         set => SetValue(ForegroundProperty, value);
     }
 
+    private FormattedText? _cachedFt;
+    private string? _cachedFtText;
+    private double _cachedFtDpi;
+    private double _cachedFtSize;
+    private FontFamily? _cachedFtFamily;
+    private FontWeight _cachedFtWeight;
+    private Brush? _cachedFtBrush;
+
+    private FormattedText GetOrCreateFormatted(string text, double dpi)
+    {
+        var fontSize = Math.Max(6, FontSize);
+        var family = FontFamily;
+        var weight = FontWeight;
+        var brush = Foreground ?? Brushes.White;
+
+        if (_cachedFt is not null &&
+            string.Equals(_cachedFtText, text, StringComparison.Ordinal) &&
+            Math.Abs(_cachedFtDpi - dpi) < 0.001 &&
+            Math.Abs(_cachedFtSize - fontSize) < 0.001 &&
+            Equals(_cachedFtFamily, family) &&
+            _cachedFtWeight == weight &&
+            Equals(_cachedFtBrush, brush))
+        {
+            return _cachedFt;
+        }
+
+        var ft = CreateFormatted(text, dpi);
+        _cachedFt = ft;
+        _cachedFtText = text;
+        _cachedFtDpi = dpi;
+        _cachedFtSize = fontSize;
+        _cachedFtFamily = family;
+        _cachedFtWeight = weight;
+        _cachedFtBrush = brush;
+        return ft;
+    }
+
     protected override Size MeasureOverride(Size availableSize)
     {
         var text = Text ?? string.Empty;
@@ -130,13 +167,14 @@ public sealed class SpacedTextBlock : FrameworkElement
 
         if (text.Length == 0)
         {
-            var probe = CreateFormatted(" ", dpi);
+            var probe = GetOrCreateFormatted(" ", dpi);
             return new Size(0, probe.Height);
         }
 
         if (Math.Abs(LetterSpacing) < 0.01)
         {
-            var ft = CreateFormatted(text, dpi);
+            var ft = GetOrCreateFormatted(text, dpi);
+            ft.TextAlignment = TextAlignment.Left;
             if (!double.IsInfinity(availableSize.Width) && availableSize.Width > 0)
             {
                 if (TextWrapping == TextWrapping.Wrap)
@@ -147,8 +185,14 @@ public sealed class SpacedTextBlock : FrameworkElement
                     return new Size(Math.Min(ft.Width, availableSize.Width), ft.Height);
                 }
 
+                ft.MaxTextWidth = 0;
+                ft.MaxLineCount = 1;
+                ft.Trimming = TextTrimming.None;
                 return new Size(Math.Min(ft.Width, availableSize.Width), ft.Height);
             }
+            ft.MaxTextWidth = 0;
+            ft.MaxLineCount = 1;
+            ft.Trimming = TextTrimming.None;
             return new Size(ft.Width, ft.Height);
         }
 
@@ -171,7 +215,7 @@ public sealed class SpacedTextBlock : FrameworkElement
 
         if (Math.Abs(LetterSpacing) < 0.01)
         {
-            var ft = CreateFormatted(text, dpi);
+            var ft = GetOrCreateFormatted(text, dpi);
             ft.MaxTextWidth = Math.Max(1, RenderSize.Width);
             ft.MaxLineCount = TextWrapping == TextWrapping.Wrap ? Math.Max(1, MaxLines) : 1;
             ft.Trimming = TextTrimming;

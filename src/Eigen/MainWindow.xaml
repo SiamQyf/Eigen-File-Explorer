@@ -121,7 +121,15 @@
     <Border x:Name="RootFrameBorder"
             BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1">
-        <Grid x:Name="RootGrid">
+        <Grid x:Name="RootGrid"
+              Opacity="0.65"
+              RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform x:Name="WindowOpenScale" ScaleX="0.992" ScaleY="0.992" />
+                    <TranslateTransform x:Name="WindowOpenTranslate" Y="4" />
+                </TransformGroup>
+            </Grid.RenderTransform>
             <Grid.RowDefinitions>
                 <RowDefinition Height="42" />
                 <RowDefinition Height="44" />
@@ -849,10 +857,28 @@
                                                Grid.Column="4"
                                                Visibility="{Binding IsPreviewPaneOpen, Converter={StaticResource BoolToVis}}" />
 
-                <!-- Customize Drawer -->
-                <controls:CustomizeDrawerView Grid.Column="5"
-                                              Width="360"
-                                              Visibility="{Binding IsCustomizePaneOpen, Converter={StaticResource BoolToVis}}" />
+                <!-- Customize Drawer (lazy-loaded on first open for faster startup) -->
+                <ContentControl Grid.Column="5"
+                                Width="360"
+                                Content="{Binding}"
+                                Focusable="False"
+                                Visibility="{Binding IsCustomizePaneOpen, Converter={StaticResource BoolToVis}}">
+                    <ContentControl.Style>
+                        <Style TargetType="ContentControl">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCustomizePaneOpen}" Value="True">
+                                    <Setter Property="ContentTemplate">
+                                        <Setter.Value>
+                                            <DataTemplate>
+                                                <controls:CustomizeDrawerView />
+                                            </DataTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ContentControl.Style>
+                </ContentControl>
 
                 <!-- Floating File Operation Progress Card -->
                 <Border Grid.Column="2"
